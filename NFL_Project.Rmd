@@ -45,6 +45,8 @@ head(data)
 
 
 ```{r}
+data17 <- load_pbp(2017)
+data18 <- load_pbp(2018)
 data19 <- load_pbp(2019)
 data20 <- load_pbp(2020)
 data21 <- load_pbp(2021)
@@ -53,7 +55,7 @@ data21 <- load_pbp(2021)
 #unique(data1$game_id)
 clean = function(data1){
   names = c("Game_id","Team_Name","Home","TFL", "QB_Hit", "Pass_Yrd","Rush_Yrd",
-            "TD","FG_attempt","XP_missed","FG_missed","FUM","INT","4th_Dwn_Con","3rd_Dwn_Con","Pen", "Score_Dif")
+            "TD","FG_attempt","XP_missed","FG_missed","FUM","INT","fourth_Dwn_Con","third_Dwn_Con","Pen", "Score_Dif")
   
   df <- data.frame()
   
@@ -88,7 +90,7 @@ clean = function(data1){
   
   df = df %>% 
   mutate_at(c("Home","TFL", "QB_Hit", "Pass_Yrd","Rush_Yrd",
-          "TD","FG_attempt","XP_missed","FG_missed","FUM","INT","4th_Dwn_Con","3rd_Dwn_Con","Pen", "Score_Dif"), as.numeric)
+          "TD","FG_attempt","XP_missed","FG_missed","FUM","INT","fourth_Dwn_Con","third_Dwn_Con","Pen", "Score_Dif"), as.numeric)
   
   return(df)
 }
@@ -97,7 +99,12 @@ clean = function(data1){
 
 
 ```{r}
+
 #DO EDA HERE
+data_2017 = clean(data17)
+head(data_2017)
+data_2018 = clean(data18)
+head(data_2018)
 data_2019 = clean(data19)
 head(data_2019)
 data_2020 = clean(data20)
@@ -118,13 +125,10 @@ sqrt(mean((data_2020$Score_Dif-predict(lm1, newdata = data_2020[,seq(2, ncol(dat
 
 sqrt(mean((data_2021$Score_Dif-predict(lm1, newdata = data_2021[,seq(2, ncol(data_2021))]))^2))
 
-boxplot(Score_Dif~Pen, data=data_2019)
+plot(lm1, which=c(1,2))
+```
 
-plot(Score_Dif~INT, data=data_2019)
-plot(Score_Dif~FUM, data=data_2019)
-plot(Score_Dif~Rush_Yrd, data=data_2019)
-plot(Score_Dif~Pass_Yrd, data=data_2019)
+```{r}
 
-plot(Score_Dif~`3rd_Dwn_Con`, data=data_2019)
-plot(Score_Dif~`4th_Dwn_Con`, data=data_2019)
+RF1 = randomForest::randomForest(Score_Dif~., data=data_2019[,seq(2, ncol(data_2019))])
 ```
