@@ -52,7 +52,7 @@ data20 <- load_pbp(2020)
 #unique(data1$game_id)
 clean = function(data1){
   names = c("Game_id","Team_Name","Home","TFL", "QB_Hit", "Pass_Yrd","Rush_Yrd",
-            "TD","FG_attempt","XP_missed","FG_missed","FUM","INT","4th_Dwn_Con","3rd_Dwn_Con","Pen", "Score_Dif")
+            "TD","FG_attempt","XP_missed","FG_missed","FUM","INT","Fourth_Dwn_Con","Third_Dwn_Con","Pen", "Score_Dif")
   
   df <- data.frame()
   
@@ -87,7 +87,7 @@ clean = function(data1){
   
   df = df %>% 
   mutate_at(c("Home","TFL", "QB_Hit", "Pass_Yrd","Rush_Yrd",
-          "TD","FG_attempt","XP_missed","FG_missed","FUM","INT","4th_Dwn_Con","3rd_Dwn_Con","Pen", "Score_Dif"), as.numeric)
+          "TD","FG_attempt","XP_missed","FG_missed","FUM","INT","Fourth_Dwn_Con","Third_Dwn_Con","Pen", "Score_Dif"), as.numeric)
   
   return(df)
 }
@@ -101,6 +101,40 @@ data_2019 = clean(data19)
 head(data_2019)
 data_2020 = clean(data20)
 head(data_2020)
+
+ggplot(data_2019, aes(x=Score_Dif)) + 
+  geom_histogram(binwidth =1, color="black", size=0.2) +
+  ggtitle("Score Differential", subtitle="2019 NFL Games")
+
+g.pass <- ggplot(data_2019, aes(x=Pass_Yrd)) + 
+  geom_histogram(bins=30, color="black", size=0.2) +
+  ggtitle("Total Passing Yards", subtitle="2019 NFL Games")
+
+g.rush <- ggplot(data_2019, aes(x=Rush_Yrd)) + 
+  geom_histogram(bins=30, color="black", size=0.2) +
+  ggtitle("Total Rushing Yards", subtitle="2019 NFL Games")
+
+ggplot(data_2019, aes(x=Pass_Yrd, y=Rush_Yrd)) + 
+  geom_point() +
+  ggtitle("Relationship of Passing Yards to Rushing Yards", subtitle="2019 NFL Games")
+
+ggplot(data_2019, aes(x=FUM, y=Score_Dif)) + 
+  geom_point() +
+  ggtitle("Relationship of Passing Yards to Rushing Yards", subtitle="2019 NFL Games")
+g.3 <- ggplot(data_2019, aes(x=Third_Dwn_Con)) + 
+  geom_histogram(bins=30, color="black", size=0.2) +
+  ggtitle("Third Down Conversions", subtitle="2019 NFL Games")
+g.4 <- ggplot(data_2019, aes(x=Fourth_Dwn_Con)) + 
+  geom_histogram(bins=30, color="black", size=0.2) +
+  ggtitle("Fourth Down Conversions", subtitle="2019 NFL Games")
+g.qb <- ggplot(data_2019, aes(x=QB_Hit)) + 
+  geom_histogram(bins=30, color="black", size=0.2) +
+  ggtitle("QB Hits", subtitle="2019 NFL Games")
+g.td <- ggplot(data_2019, aes(x=TD)) + 
+  geom_histogram(bins=30, color="black", size=0.2) +
+  ggtitle("TDs", subtitle="2019 NFL Games")
+
+gridExtra::grid.arrange(g.pass, g.rush, nrow=1)
 ```
 
 
