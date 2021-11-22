@@ -1,18 +1,63 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output: pdf_document
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
 
 ```{r}
-plot(cars)
+install.packages("tidyverse", type = "binary")
+install.packages("ggrepel", type = "binary")
+install.packages("ggimage", type = "binary")
+install.packages("nflfastR", type = "binary")
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+```{r}
+library(tidyverse)
+library(ggrepel)
+library(ggimage)
+library(nflfastR)
+options(scipen = 9999)
+```
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+```{r}
+cleaned = data.frame()
+data <- load_pbp(2020)
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+sum(data[data$posteam == "NE" & data$pass==1,]$yards_gained)
+data[(data$posteam == "NE"),]$home_score
+
+        
+        
+for (i in unique(data$game_id)){
+  home = data[data$game_id == i,]$home_team
+  away = data[data$game_id == i,]$away_team
+  #home_data = c(sum(data[data$posteam == home & data$pass==1,]$yards_gained, na.rm=T))
+  print((sum(data[data$game_id == i & data$posteam == home & data$pass==1,]$yards_gained, na.rm=T)))
+}
+#252
+
+data[data$game_id=="2020091311" & data$posteam==data$home_team & data$pass==1, ]
+```
+
+
+```{r}
+data1 <- load_pbp(2019)
+head(data1$game_id,100)
+
+unique(data1$game_id)
+
+
+
+df <- c()
+for(i in unique(data1$game_id)) {
+  temp <- subset(data1, game_id == i) %>% select(PREDICTORS)
+  for(j in c(temp$home_team[1], temp$away_team[1])) {
+    to_add <- c(j, #team name
+                sum(is.na(temp$tackled_for_loss[temp$defteam == j] == 1))
+                )
+    df <- rbind(df, to_add)
+  }
+}
+
+
+```
