@@ -38,28 +38,37 @@ for (i in unique(data$game_id)){
 
 data[data$game_id=="2020091311" & data$posteam==data$home_team & data$pass==1, ]
 
-data[data$game_id=="2020_01_ARI_SF" & is.na(data$third_down_converted),]
+unique(data$extra_point_result)
 ```
 
 
 ```{r}
 data1 <- load_pbp(2019)
-head(data1$game_id,100)
+#head(data1$game_id,100)
 
-unique(data1$game_id)
+#unique(data1$game_id)
 
-df <- c()
+names = c("Game_id","Home","Team_Name","TFL", "QB_Hit", "Pass_Yrd","Rush_Yrd",
+          "TD","FG_attempt","XP_missed","FG_missed","FUM","INT","4th_Dwn_Con","3rd_Dwn_Con","Pen")
+
+df <- data.frame()
+
 for(i in unique(data1$game_id)) {
   temp <- subset(data1, game_id == i)
   for(j in c(temp$home_team[1], temp$away_team[1])) {
-    to_add <- c(j, #team name
+    to_add <- c(i, #Game id
+                j==temp$home_team[1], #team is home
+                j, #team name
                 sum(temp$tackled_for_loss[temp$defteam == j] == 1, na.rm=TRUE), #tackles for loss
                 sum(temp$qb_hit[temp$posteam == j] == 1, na.rm=TRUE), #how many times team's QB was hit
                 sum(temp$passing_yards[temp$posteam == j], na.rm=TRUE), #team passing yards
                 sum(temp$rushing_yards[temp$posteam == j], na.rm=TRUE), #team rushing yards
-                sum(temp$rushing_yards[temp$posteam == j], na.rm=TRUE), #team rushing yards
                 sum(temp$touchdown[temp$posteam == j], na.rm=TRUE), #team touchdowns
                 sum(temp$field_goal_attempt[temp$posteam == j], na.rm=TRUE), #team field goal attempts
+                sum(temp$extra_point_result[temp$posteam == j]=="failed" | 
+                      temp$extra_point_result[temp$posteam == j]=="blocked", na.rm=TRUE), #exp missed
+                sum(temp$field_goal_result[temp$posteam == j]=="missed" | 
+                      temp$field_goal_result[temp$posteam == j]=="blocked", na.rm=TRUE), #fg missed
                 sum(temp$fumble[temp$defteam == j], na.rm=TRUE), #number of fumbles
                 sum(temp$interception[temp$defteam == j], na.rm=TRUE), #number of interceptions
                 sum(temp$fourth_down_converted[temp$posteam == j], na.rm=TRUE), #4th down conversions
@@ -70,5 +79,8 @@ for(i in unique(data1$game_id)) {
   }
 }
 
+colnames(df) = names
+
 df
+
 ```
