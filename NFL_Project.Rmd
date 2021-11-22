@@ -131,4 +131,7 @@ plot(lm1, which=c(1,2))
 ```{r}
 
 RF1 = randomForest::randomForest(Score_Dif~., data=data_2019[,seq(2, ncol(data_2019))])
+
+sqrt(mean((data_2019$Score_Dif - predict(RF1))^2))
+
 ```
