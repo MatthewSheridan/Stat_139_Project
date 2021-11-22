@@ -37,6 +37,8 @@ for (i in unique(data$game_id)){
 #252
 
 data[data$game_id=="2020091311" & data$posteam==data$home_team & data$pass==1, ]
+
+data[data$game_id=="2020_01_ARI_SF" & is.na(data$third_down_converted),]
 ```
 
 
@@ -46,18 +48,27 @@ head(data1$game_id,100)
 
 unique(data1$game_id)
 
-
-
 df <- c()
 for(i in unique(data1$game_id)) {
-  temp <- subset(data1, game_id == i) %>% select(PREDICTORS)
+  temp <- subset(data1, game_id == i)
   for(j in c(temp$home_team[1], temp$away_team[1])) {
     to_add <- c(j, #team name
-                sum(is.na(temp$tackled_for_loss[temp$defteam == j] == 1))
+                sum(temp$tackled_for_loss[temp$defteam == j] == 1, na.rm=TRUE), #tackles for loss
+                sum(temp$qb_hit[temp$posteam == j] == 1, na.rm=TRUE), #how many times team's QB was hit
+                sum(temp$passing_yards[temp$posteam == j], na.rm=TRUE), #team passing yards
+                sum(temp$rushing_yards[temp$posteam == j], na.rm=TRUE), #team rushing yards
+                sum(temp$rushing_yards[temp$posteam == j], na.rm=TRUE), #team rushing yards
+                sum(temp$touchdown[temp$posteam == j], na.rm=TRUE), #team touchdowns
+                sum(temp$field_goal_attempt[temp$posteam == j], na.rm=TRUE), #team field goal attempts
+                sum(temp$fumble[temp$defteam == j], na.rm=TRUE), #number of fumbles
+                sum(temp$interception[temp$defteam == j], na.rm=TRUE), #number of interceptions
+                sum(temp$fourth_down_converted[temp$posteam == j], na.rm=TRUE), #4th down conversions
+                sum(temp$third_down_converted[temp$posteam == j], na.rm=TRUE), #3rd down conversions
+                sum(temp$penalty[temp$posteam == j & temp$penalty_team == j], na.rm=TRUE) #number of penalties
                 )
     df <- rbind(df, to_add)
   }
 }
 
-
+df
 ```
