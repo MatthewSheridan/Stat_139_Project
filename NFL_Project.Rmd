@@ -1,10 +1,14 @@
 ---
 title: "R Notebook"
+author: "Alex Baker, James Kitch, Jackson Smith, Matthew Sheridan"
 output: pdf_document
 ---
 
+\textbf{Introduction:}
 
-```{r}
+
+\textbf{Data Cleaning, EDA:}
+```{r, eval=F, results='hide', echo=F}
 install.packages("tidyverse", type = "binary")
 install.packages("ggrepel", type = "binary")
 install.packages("ggimage", type = "binary")
@@ -12,7 +16,7 @@ install.packages("nflfastR", type = "binary")
 install.packages("dplyr", type = "binary")
 ```
 
-```{r}
+```{r, message=FALSE, warning=F, results='hide', echo=F}
 library(tidyverse)
 library(ggrepel)
 library(ggimage)
@@ -20,31 +24,7 @@ library(nflfastR)
 library(dplyr)
 options(scipen = 9999)
 ```
-
-```{r}
-cleaned = data.frame()
-data <- load_pbp(2020)
-
-sum(data[data$posteam == "NE" & data$pass==1,]$yards_gained)
-data[(data$posteam == "NE"),]$home_score
-
-        
-        
-for (i in unique(data$game_id)){
-  home = data[data$game_id == i,]$home_team
-  away = data[data$game_id == i,]$away_team
-  #home_data = c(sum(data[data$posteam == home & data$pass==1,]$yards_gained, na.rm=T))
-  print((sum(data[data$game_id == i & data$posteam == home & data$pass==1,]$yards_gained, na.rm=T)))
-}
-#252
-
-data[data$game_id=="2020091311" & data$posteam==data$home_team & data$pass==1, ]
-
-head(data)
-```
-
-
-```{r}
+```{r, echo=F}
 data17 <- load_pbp(2017)
 data18 <- load_pbp(2018)
 data19 <- load_pbp(2019)
@@ -95,43 +75,56 @@ clean = function(data1){
   return(df)
 }
 
+
+RMSE <- function(y.obs, y.pred){
+  return(sqrt(mean((y.obs-y.pred)^2)))
+}
 ```
 
 
 ```{r}
-
 #DO EDA HERE
 data_2017 = clean(data17)
-head(data_2017)
 data_2018 = clean(data18)
-head(data_2018)
 data_2019 = clean(data19)
-head(data_2019)
 data_2020 = clean(data20)
-head(data_2020)
 data_2021 = clean(data21)
-head(data_2021)
 ```
 
+\textbf{Initial Modeling:}
 
 ```{r}
 lm1 = lm(Score_Dif~., data=data_2019[,seq(3, ncol(data_2019))])
 
-summary(lm1)
-
-sqrt(mean((data_2019$Score_Dif-predict(lm1))^2))
-
-sqrt(mean((data_2020$Score_Dif-predict(lm1, newdata = data_2020[,seq(2, ncol(data_2020))]))^2))
-
-sqrt(mean((data_2021$Score_Dif-predict(lm1, newdata = data_2021[,seq(2, ncol(data_2021))]))^2))
-
-plot(lm1, which=c(1,2))
-```
-
-```{r}
-
 RF1 = randomForest::randomForest(Score_Dif~., data=data_2019[,seq(2, ncol(data_2019))])
 
-sqrt(mean((data_2019$Score_Dif - predict(RF1))^2))
-
+step1 <- step(lm(Score_Dif~1, data=data_2019), scope=formula(lm1), direction="forward",trace=0)
 ```
+
+
+```{r}
+rmse_2021 = c(RMSE(data_2021$Score_Dif, predict(lm1, newdata=data_2021)),
+              RMSE(data_2021$Score_Dif, predict(step1, newdata=data_2021)),
+              RMSE(data_2021$Score_Dif, predict(RF1, newdata=data_2021)))
+
+rmse_2020 = c(RMSE(data_2020$Score_Dif, predict(lm1, newdata=data_2020)),
+              RMSE(data_2020$Score_Dif, predict(step1, newdata=data_2020)),
+              RMSE(data_2020$Score_Dif, predict(RF1, newdata=data_2020)))
+
+rmse_2019 = c(RMSE(data_2019$Score_Dif, predict(lm1)),
+              RMSE(data_2019$Score_Dif, predict(step1)),
+              RMSE(data_2019$Score_Dif, predict(RF1)))
+
+rmse_2018 = c(RMSE(data_2018$Score_Dif, predict(lm1, newdata=data_2018)),
+              RMSE(data_2018$Score_Dif, predict(step1, newdata=data_2018)),
+              RMSE(data_2018$Score_Dif, predict(RF1, newdata=data_2018)))
+
+rmse_2017 = c(RMSE(data_2017$Score_Dif, predict(lm1, newdata=data_2017)),
+              RMSE(data_2017$Score_Dif, predict(step1, newdata=data_2017)),
+              RMSE(data_2017$Score_Dif, predict(RF1, newdata=data_2017)))
+
+rmse = data.frame(rmse_2017, rmse_2018, rmse_2019, rmse_2020, rmse_2021, row.names = c("Linear", "Step", "RF1"))
+rmse
+```
+
+\textbf{Conclusion:}
