@@ -7,14 +7,7 @@ output: pdf_document
 \textbf{Introduction:}
 
 
-\textbf{Data Cleaning, EDA:}
-```{r, eval=F, results='hide', echo=F}
-install.packages("tidyverse", type = "binary")
-install.packages("ggrepel", type = "binary")
-install.packages("ggimage", type = "binary")
-install.packages("nflfastR", type = "binary")
-install.packages("dplyr", type = "binary")
-```
+\Section{Data Cleaning, EDA:}
 
 ```{r, message=FALSE, warning=F, results='hide', echo=F}
 library(tidyverse)
@@ -22,6 +15,7 @@ library(ggrepel)
 library(ggimage)
 library(nflfastR)
 library(dplyr)
+library(gridExtra)
 options(scipen = 9999)
 ```
 ```{r, echo=F}
@@ -79,13 +73,20 @@ RMSE <- function(y.obs, y.pred){
 ```
 
 
+Below, we graphed the distributions for a number of different potential predictors, as well as their relationship with the response variable of interest. Most predictors are slightly right-skewed, as they have a positive support and have a slight "bell" shape for the most common values but are stretched out by the few exceptional games where a team throws for 500 yards or rushes for 250 yards. However, it is mild right-skewness as it is not to the extent that log-transforming them would make the distributions more symmetric. For example, if we log-transform `Pass_Yrd` we actually find that the the resulting distribution is left-skewed, suggesting that the log transformation was actually too strong!
+
+Furthermore, we can perform a quick check and see that the distribution of passing yards is roughly the same in 2019 as it was in 2018. 
+
 ```{r}
 #DO EDA HERE
 data_2017 = clean(data17)
 data_2018 = clean(data18)
 data_2019 = clean(data19)
 data_2020 = clean(data20)
-head(data_2020)
+data_2021 = clean(data21)
+data_2019$year <- 2019
+data_2018$year <- 2018
+data_2018_2019 <- rbind(data_2018, data_2019)
 
 ggplot(data_2019, aes(x=Score_Dif)) + 
   geom_histogram(binwidth =1, color="black", size=0.2) +
@@ -94,6 +95,10 @@ ggplot(data_2019, aes(x=Score_Dif)) +
 g.pass <- ggplot(data_2019, aes(x=Pass_Yrd)) + 
   geom_histogram(bins=30, color="black", size=0.2) +
   ggtitle("Total Passing Yards", subtitle="2019 NFL Games")
+
+ggplot(data_2018_2019, aes(x=Pass_Yrd, group=as.factor(year), fill=as.factor(year))) + 
+  geom_histogram(bins=30, color="black", size=0.2, position="identity", alpha=0.6) +
+  ggtitle("Total Passing Yards", subtitle="2018 and 2019 NFL Games")
 
 g.rush <- ggplot(data_2019, aes(x=Rush_Yrd)) + 
   geom_histogram(bins=30, color="black", size=0.2) +
@@ -120,7 +125,7 @@ g.td <- ggplot(data_2019, aes(x=TD)) +
   ggtitle("TDs", subtitle="2019 NFL Games")
 
 gridExtra::grid.arrange(g.pass, g.rush, nrow=1)
-data_2021 = clean(data21)
+gridExtra::grid.arrange(g.3, g.4, g.qb, g.td, nrow=2)
 ```
 
 \Section{Initial Modeling:}
@@ -160,3 +165,6 @@ rmse
 ```
 
 \Section{Conclusion:}
+
+National Football League data provides a ripe opportunity for statistical analysis, especially when able to access play-by-play level data using the `nflfastR` package. While most variables have a slight right skew to them and only take on positive values, this did not present tremendous challenges for our models. Going forward, we're interested to continue investigating the impact of variables that provide a clear relationship towards "success" in a game--such as total passing yards or total rushing yards--as well as more "strategic" variables such as the number of third and fourth down conversions. Given the  violations of symmetric distributions in many of the predictors and the potential for non-linear relationships to arise, examining the performance and interpretations of Random Forest models will also be a focus in our analysis. 
+
