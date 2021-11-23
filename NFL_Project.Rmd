@@ -6,10 +6,15 @@ fig_width: 4
 fig_height: 3 
 ---
 
-Introduction:
+\textbf{Introduction:}
+
+Our data comes from the nflfastR package, which contains accumulated play-by-play data from 1999 through 2021, with additional predictors beginning in 2006. We hope to create an efficient, streamlined model capable of predicting the score differential of an NFL game. Furthermore, we also want to be able to use what we gain from our models to help make insightful analyses and predictions in other scenarios. Some predictors will impact only one of these models while others will prove to be far more significant than widely recognized: it all depends on which refining method produces the most successful and significant model. 
 
 
-Data Cleaning, EDA:
+While we will have some variables with relatively clear-cut relationships with score differential, our analysis will also focus on how more “strategic” variables relate to success. More turnovers in a game and more total yards should correlate strongly with score differential, but we are interested in variables that have a more unclear relationship with the final outcome. Are missed extra point attempts indicative of the team as a whole having a bad day? What about third down conversion rate? And quarterback hits? These are the kinds of interactions and trends we hope to expose in our model. By using metrics that are not generally used to predict game outcomes, we hope to find insight into predicting wins that are not conventionally expected.
+
+
+\textbf{Data Cleaning, EDA:}
 
 ```{r, results='hide', echo=F, eval=F,warning=F}
 install.packages("tidyverse", type = "binary")
@@ -140,14 +145,14 @@ g.td <- ggplot(data_2019, aes(x=TD)) +
   geom_histogram(bins=30, color="black", size=0.2) +
   ggtitle("TDs", subtitle="2019 NFL Games")
 
-gridExtra::grid.arrange(g.pass, g.rush, nrow=1)
-gridExtra::grid.arrange(g.3, g.4, g.qb, g.td, nrow=2)
+#gridExtra::grid.arrange(g.pass, g.rush, nrow=1)
+gridExtra::grid.arrange(g.pass, g.rush, g.3, g.4, g.qb, g.td, nrow=3)
 
 ```
 
-Initial Modeling:
+\textbf{Initial Modeling:}
 
-The code for initializing the models has been hidden for space constraints. The linear model was using all predictors, the stepwise model stepped from an intercept only model to all predictors, and the randomforest has not been tuned (YET) and uses all predictors, as well as the default parameters.
+The code for initializing the models has been hidden for space constraints. The linear model was using all predictors, the stepwise model stepped from an intercept only model to all predictors, and the randomforest has not been tuned (YET) and uses all predictors, as well as the default parameters. We can see that the RMSE's are pretty close together for all the models, but the stepwise linear model seems to outperform all.
 
 ```{r, warning=F, echo=F}
 lm1 = lm(Score_Dif~., data=data_2019[,seq(3, ncol(data_2019))])
@@ -183,7 +188,7 @@ rmse = data.frame(rmse_2017, rmse_2018, rmse_2019, rmse_2020, rmse_2021, row.nam
 rmse
 ```
 
-Conclusion:
+\textbf{Conclusion:}
 
 National Football League data provides a ripe opportunity for statistical analysis, especially when able to access play-by-play level data using the `nflfastR` package. While most variables have a slight right skew to them and only take on positive values, this did not present tremendous challenges for our models. Going forward, we're interested to continue investigating the impact of variables that provide a clear relationship towards "success" in a game--such as total passing yards or total rushing yards--as well as more "strategic" variables such as the number of third and fourth down conversions. Given the  violations of symmetric distributions in many of the predictors and the potential for non-linear relationships to arise, examining the performance and interpretations of Random Forest models will also be a focus in our analysis. 
 
