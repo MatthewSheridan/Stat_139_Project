@@ -93,9 +93,9 @@ RMSE <- function(y.obs, y.pred){
 
 Below, we graphed the distributions for a number of different potential predictors, as well as their relationship with the response variable of interest. Most predictors are slightly right-skewed, as they have a positive support and have a slight "bell" shape for the most common values but are stretched out by the few exceptional games where a team throws for 500 yards or rushes for 250 yards. However, it is mild right-skewness as it is not to the extent that log-transforming them would make the distributions more symmetric. For example, if we log-transform `Pass_Yrd` we actually find that the the resulting distribution is left-skewed, suggesting that the log transformation was actually too strong!
 
-Furthermore, we can perform a quick check and see that the distribution of passing yards is roughly the same in 2019 as it was in 2018. 
+Furthermore, we can do a preliminary investigation of the relationships between some of the predictors and the outcome variable of score differential in 2019. Notably, we can see that the number of fumbles caused by a team is positively associated with score differential and that it is a relatively linear trend. The number of third down conversions is also positively associated with score differential, but this seems more complicated than a "simple" linear trend. Teams with a very large number (> 8) of third down conversions in a game appear to have a more negative score differential than teans with 5-7 third down conversions. This suggests that in future models investigating the effects of quadratic or higher order polynomial terms could be reasonable.
 
-```{r, echo=F}
+```{r, echo=F, message=F}
 #DO EDA HERE
 data_2017 = clean(data17)
 data_2018 = clean(data18)
@@ -117,9 +117,9 @@ g.pass <- ggplot(data_2019, aes(x=Pass_Yrd)) +
   geom_histogram(bins=30, color="black", size=0.2) +
   ggtitle("Total Passing Yards", subtitle="2019 NFL Games")
 
-ggplot(data_2018_2019, aes(x=Pass_Yrd, group=as.factor(year), fill=as.factor(year))) + 
-  geom_histogram(bins=30, color="black", size=0.2, position="identity", alpha=0.6) +
-  ggtitle("Total Passing Yards", subtitle="2018 and 2019 NFL Games")
+# ggplot(data_2018_2019, aes(x=Pass_Yrd, group=as.factor(year), fill=as.factor(year))) + 
+#   geom_histogram(bins=30, color="black", size=0.2, position="identity", alpha=0.6) +
+#   ggtitle("Total Passing Yards", subtitle="2018 and 2019 NFL Games")
 
 g.rush <- ggplot(data_2019, aes(x=Rush_Yrd)) + 
   geom_histogram(bins=30, color="black", size=0.2) +
@@ -131,7 +131,17 @@ g.ps_rsh <- ggplot(data_2019, aes(x=Pass_Yrd, y=Rush_Yrd)) +
 
 g.fum_sc <- ggplot(data_2019, aes(x=FUM, y=Score_Dif)) + 
   geom_point() +
-  ggtitle("Relationship of Fumbles to Score Difference", subtitle="2019 NFL Games")
+  stat_smooth(method="lm", se=F) +
+  ggtitle("Number of Fumbles Caused to Score Difference", subtitle="2019 NFL Games")
+
+g.3_sc <- ggplot(data_2019, aes(x=Third_Dwn_Con, y=Score_Dif)) + 
+  geom_point() +
+  stat_smooth(method="lm", se=F) +
+  ggtitle("Third Down Conversions vs Score Difference", subtitle="2019 NFL Games")
+
+g.pass_sc <- ggplot(data_2019, aes(x=Pass_Yrd, y=Score_Dif)) + 
+  geom_point() +
+  ggtitle("Relationship of Passing Yards to Score Difference", subtitle="2019 NFL Games")
 g.3 <- ggplot(data_2019, aes(x=Third_Dwn_Con)) + 
   geom_histogram(bins=30, color="black", size=0.2) +
   ggtitle("Third Down Conversions", subtitle="2019 NFL Games")
@@ -146,6 +156,7 @@ g.td <- ggplot(data_2019, aes(x=TD)) +
   ggtitle("TDs", subtitle="2019 NFL Games")
 
 #gridExtra::grid.arrange(g.pass, g.rush, nrow=1)
+gridExtra::grid.arrange(g.fum_sc, g.3_sc)
 gridExtra::grid.arrange(g.pass, g.rush, g.3, g.4, g.qb, g.td, nrow=3)
 
 ```
