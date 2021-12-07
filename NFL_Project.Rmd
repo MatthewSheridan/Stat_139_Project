@@ -86,9 +86,9 @@ clean = function(data1){
   return(df)
 }
 
-
 RMSE <- function(y.obs, y.pred){
   return(sqrt(mean((y.obs-y.pred)^2)))
+  
 }
 ```
 
@@ -104,6 +104,7 @@ data_2018 = clean(data18)
 data_2019 = clean(data19)
 data_2020 = clean(data20)
 data_2021 = clean(data21)
+
 data_2019_2 = data.frame(data_2019)
 data_2018_2 = data.frame(data_2018)
 data_2019_2$year <- 2019
@@ -241,15 +242,13 @@ hist(coef(lmer_all)$Team_Name[,1], main="Histogram of Random Intercept Estimates
 
 ```{r}
 
-data_2017_19
-
 data_2017_19_test = data.frame(data_2017_19)
 
 data_2017_19_test$wins = ifelse(data_2017_19$Score_Dif > 0, 1, 0)
 
-win.log = glm(wins~.-Score_Dif-Game_id-Team_Name-year, data=data_2017_19_test)
+win.log = glm(wins~.-Score_Dif-year-Rush_Yrd, data=data_2017_19_test[,seq(3, ncol(data_2017_19_test))], family="binomial")
 
-best.log = glm(wins~Rush_Yrd+TD+QB_Hit+INT+FG_attempt, data = data_2017_19_test)
+best.log = glm(wins~Rush_Yrd+QB_Hit+INT+FG_attempt, data = data_2017_19_test, family="binomial")
 
 init_coef_log = data.frame(summary(win.log)$coefficients)
 best_coef_log = data.frame(summary(best.log)$coefficients)
@@ -261,6 +260,28 @@ best_coef_log$type = "tuned"
 
 ggplot(rbind(init_coef_log, best_coef_log), aes(fill=type, y=Estimate, x=coef)) + 
     geom_bar(position="dodge", stat="identity") + coord_flip()
+```
 
+```{r}
+predicted_wins_initial = 1*(win.log$fitted.values>0.5) 
+predicted_wins_best = 1*(best.log$fitted.values>0.5)
+
+pred.acc.init = sum(predicted_wins_initial == data_2017_19_test$wins)/nrow(data_2017_19_test); pred.acc.init
+pred.acc.best = sum(predicted_wins_best == data_2017_19_test$wins)/nrow(data_2017_19_test); pred.acc.best
+```
+
+Interesting extensions:
+
+```{r}
+new_2021 = data.frame(data_2021)
+new_2021$year = 2021
+
+ne.game.best = predict(best.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==1,], type="response"); ne.game.best
+
+tb.game.best = predict(best.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==0,], type="response"); tb.game.best
+
+ne.game.init = predict(win.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==1,], type="response"); ne.game.init
+
+tb.game.init = predict(win.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==0,], type="response"); tb.game.init
 ```
 
