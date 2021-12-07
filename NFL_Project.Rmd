@@ -23,6 +23,7 @@ install.packages("ggimage", type = "binary")
 install.packages("nflfastR", type = "binary")
 install.packages("dplyr", type = "binary")
 install.packages("randomForest", type = "binary")
+install.packages("lme4", type = "binary")
 ```
 
 ```{r, message=FALSE, warning=F, results='hide', echo=F}
@@ -33,6 +34,7 @@ library(nflfastR)
 library(dplyr)
 library(gridExtra)
 library(randomForest)
+library(lme4)
 options(scipen = 9999)
 ```
 
@@ -247,15 +249,18 @@ data_2017_19_test$wins = ifelse(data_2017_19$Score_Dif > 0, 1, 0)
 
 win.log = glm(wins~.-Score_Dif-Game_id-Team_Name-year, data=data_2017_19_test)
 
-summary(win.log)
+best.log = glm(wins~Rush_Yrd+TD+QB_Hit+INT+FG_attempt, data = data_2017_19_test)
 
-rush = seq(min(data_2017_19_test$Rush_Yrd), max(data_2017_19_test$Rush_Yrd), len=100)
+init_coef_log = data.frame(summary(win.log)$coefficients)
+best_coef_log = data.frame(summary(best.log)$coefficients)
 
-res = summary(win.log)$coefficients[1,][1] + summary(win.log)$coefficients[6,][1]*rush
+init_coef_log$coef = row.names(init_coef_log)
+best_coef_log$coef = row.names(best_coef_log)
+init_coef_log$type = "initial"
+best_coef_log$type = "tuned"
 
-pred=(exp(res)/(1+exp(res)))
+ggplot(rbind(init_coef_log, best_coef_log), aes(fill=type, y=Estimate, x=coef)) + 
+    geom_bar(position="dodge", stat="identity") + coord_flip()
 
-plot(data_2017_19_test$wins~data_2017_19_test$Rush_Yrd)
-points(pred~rush, col="Green", lw=3)
 ```
 
