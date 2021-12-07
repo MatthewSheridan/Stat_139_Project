@@ -106,7 +106,9 @@ data_2019_2 = data.frame(data_2019)
 data_2018_2 = data.frame(data_2018)
 data_2019_2$year <- 2019
 data_2018_2$year <- 2018
+data_2017$year <- 2017
 data_2018_2019 <- rbind(data_2018_2, data_2019_2)
+data_2017_19 <- rbind(data_2017, data_2018_2, data_2019_2)
 
 
 g.score <- ggplot(data_2019, aes(x=Score_Dif)) + 
@@ -202,4 +204,7 @@ rmse
 \textbf{Conclusion:}
 
 National Football League data provides a ripe opportunity for statistical analysis, especially when able to access play-by-play level data using the `nflfastR` package. While most variables have a slight right skew to them and only take on positive values, this did not present tremendous challenges for our models. Going forward, we're interested to continue investigating the impact of variables that provide a clear relationship towards "success" in a game--such as total passing yards or total rushing yards--as well as more "strategic" variables such as the number of third and fourth down conversions. Given the  violations of symmetric distributions in many of the predictors and the potential for non-linear relationships to arise, examining the performance and interpretations of Random Forest models will also be a focus in our analysis. 
+
+
+
 
