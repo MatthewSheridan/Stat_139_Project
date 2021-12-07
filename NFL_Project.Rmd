@@ -6,7 +6,7 @@ fig_width: 4
 fig_height: 3 
 ---
 
-\textbf{Introduction:}
+\section{Introduction:}
 
 Our data comes from the nflfastR package, which contains accumulated play-by-play data from 1999 through 2021, with additional predictors beginning in 2006. We hope to create an efficient, streamlined model capable of predicting the score differential of an NFL game. Furthermore, we also want to be able to use what we gain from our models to help make insightful analyses and predictions in other scenarios. Some predictors will impact only one of these models while others will prove to be far more significant than widely recognized: it all depends on which refining method produces the most successful and significant model. 
 
@@ -14,7 +14,7 @@ Our data comes from the nflfastR package, which contains accumulated play-by-pla
 While we will have some variables with relatively clear-cut relationships with score differential, our analysis will also focus on how more “strategic” variables relate to success. More turnovers in a game and more total yards should correlate strongly with score differential, but we are interested in variables that have a more unclear relationship with the final outcome. Are missed extra point attempts indicative of the team as a whole having a bad day? What about third down conversion rate? And quarterback hits? These are the kinds of interactions and trends we hope to expose in our model. By using metrics that are not generally used to predict game outcomes, we hope to find insight into predicting wins that are not conventionally expected.
 
 
-\textbf{Data Cleaning, EDA:}
+\section{Data Cleaning, EDA:}
 
 ```{r, results='hide', echo=F, eval=F,warning=F}
 install.packages("tidyverse", type = "binary")
@@ -106,7 +106,10 @@ data_2019_2 = data.frame(data_2019)
 data_2018_2 = data.frame(data_2018)
 data_2019_2$year <- 2019
 data_2018_2$year <- 2018
+data_2017$year <- 2017
 data_2018_2019 <- rbind(data_2018_2, data_2019_2)
+data_2017_19 <- rbind(data_2017, data_2018_2, data_2019_2)
+
 
 
 g.score <- ggplot(data_2019, aes(x=Score_Dif)) + 
@@ -161,16 +164,16 @@ gridExtra::grid.arrange(g.pass, g.rush, g.3, g.4, g.qb, g.td, nrow=3)
 
 ```
 
-\textbf{Initial Modeling:}
+\section{Initial Modeling:}
 
 The code for initializing the models has been hidden for space constraints. The linear model was using all predictors, the stepwise model stepped from an intercept only model to all predictors, and the randomforest has not been tuned (YET) and uses all predictors, as well as the default parameters. We can see that the RMSE's are pretty close together for all the models, but the stepwise linear model seems to outperform all.
 
 ```{r, warning=F, echo=F}
-lm1 = lm(Score_Dif~., data=data_2019[,seq(3, ncol(data_2019))])
+lm1 = lm(Score_Dif~. , data=data_2017_19[,seq(2, ncol(data_2017_19))])
 
-RF1 = randomForest(Score_Dif~., data=data_2019[,seq(2, ncol(data_2019))])
+RF1 = randomForest(Score_Dif~., data=data_2017_19[,seq(2, ncol(data_2017_19))])
 
-step1 <- step(lm(Score_Dif~1, data=data_2019), scope=formula(lm1), direction="forward",trace=0)
+step1 <- step(lm(Score_Dif~1, data=data_2017_19), scope=formula(lm1), direction="forward",trace=0)
 ```
 
 
@@ -198,8 +201,39 @@ rmse_2017 = c(RMSE(data_2017$Score_Dif, predict(lm1, newdata=data_2017)),
 rmse = data.frame(rmse_2017, rmse_2018, rmse_2019, rmse_2020, rmse_2021, row.names = c("Linear", "Step", "RF1"))
 rmse
 ```
+\section{LMER Modeling}
 
-\textbf{Conclusion:}
+```{r}
+data_2017_19_scale <- data_2017_19
+data_2017_19_scale[,6:7] <- data_2017_19_scale[,6:7] %>% sapply(scale, scale=F)
+just_home_17_19 <- data_2017_19 %>% filter(Home==1)
+just_away_17_19 <- data_2017_19 %>% filter(Home==0)
+
+
+lm1 <- lm(Score_Dif ~. -Team_Name -Game_id -year, data=data_2017_19_scale)
+lmer_home <- lmer(Score_Dif ~. -Team_Name -Game_id - Home -year + (1+Rush_Yrd|Team_Name), data=just_home_17_19)
+lmer_away <- lmer(Score_Dif ~. -Team_Name -Game_id - Home -year + (1|Team_Name), data=just_away_17_19)
+lmer_all <- lmer(Score_Dif ~. -Team_Name -Game_id -year + (1|Team_Name), data=data_2017_19_scale)
+lmer_all_slope <- lmer(Score_Dif ~. -Team_Name -Game_id -year + (1+Rush_Yrd|Team_Name), data=data_2017_19_scale)
+
+AIC(lmer_all, lmer_all_slope, lm1)
+```
+Next, we fit a Linear Mixed-Effects model with random intercepts by team to see if that had any impact on our predictions. Given that observations can be grouped by team and there are 32 teams, a mixed-effects model was a natural next step in our modeling approach. We fit two different types of mixed-effects models: one with all available predictors, and one with the predictors chosen by sequential variable selection. We found that the inclusion of a random intercept did not improve prediction substantially, with the random intercept term only accounting for $\approx 5$% of the total variance in the model. Some of this may be due to the fact that there are a relatively large number of observations per team. Although there are $32$ teams, each team has $48$ - $60$ "measurements" or games in the dataset and thus the benefit of linear mixed-effects modeling in shrinking outlier intercepts towards the mean is less pronounced. Furthermore, we fitted a linear mixed-effects model with a random intercept by team and random slope for the relationship of total rushing yards with final score differential. In theory, if some teams were primarily a "passing" team, total rushing yards might have less of an outcome on final score differential than if their primary game strategy relied on the run. However, we find that this random slope model actually worsens the model AIC suggesting that this is not a particularly important trend to model.
+
+The fitted values vs residuals plot and Normal Q-Q plots are both good for this random-intercept mixed-effects model, demonstrating that constant variance and normality of residuals are acceptable assumptions for this model. However, there is some concern with the distribution of fitted random intercept estimates--the histogram is neither normal-shaped or symmetric. This could potentially be fixed with \textbf{Blank but it is probably not an issue at the end of the day}.
+```{r}
+par(mfrow=c(2, 2))
+plot(resid(lmer_all)~predict(lmer_all), main="Fitted Values vs Residuals", xlab="Predicted", ylab="Resid")
+abline(h=0, col = "red")
+#normality of residuals
+qqnorm(resid(lmer_all))
+qqline(resid(lmer_all))
+#check normality of random effects - non-normal
+hist(coef(lmer_all)$Team_Name[,1], main="Histogram of Random Intercept Estimates")
+```
+
+
+\section{Conclusion:}
 
 National Football League data provides a ripe opportunity for statistical analysis, especially when able to access play-by-play level data using the `nflfastR` package. While most variables have a slight right skew to them and only take on positive values, this did not present tremendous challenges for our models. Going forward, we're interested to continue investigating the impact of variables that provide a clear relationship towards "success" in a game--such as total passing yards or total rushing yards--as well as more "strategic" variables such as the number of third and fourth down conversions. Given the  violations of symmetric distributions in many of the predictors and the potential for non-linear relationships to arise, examining the performance and interpretations of Random Forest models will also be a focus in our analysis. 
 
