@@ -24,6 +24,7 @@ install.packages("nflfastR", type = "binary")
 install.packages("dplyr", type = "binary")
 install.packages("randomForest", type = "binary")
 install.packages("lme4", type = "binary")
+install.packages("xfun")
 ```
 
 ```{r, message=FALSE, warning=F, results='hide', echo=F}
@@ -35,6 +36,7 @@ library(dplyr)
 library(gridExtra)
 library(randomForest)
 library(lme4)
+library(xfun)
 options(scipen = 9999)
 ```
 
@@ -284,4 +286,5 @@ ne.game.init = predict(win.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB
 
 tb.game.init = predict(win.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==0,], type="response"); tb.game.init
 ```
+
 
