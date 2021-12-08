@@ -6,7 +6,6 @@ fig_width: 4
 fig_height: 3 
 ---
 
-<<<<<<< HEAD
 \section{Introduction}
 
 
@@ -17,7 +16,6 @@ The National Football League (NFL) was slower to adopt sabermetrics, but the ris
 Our data comes from the nflfastR package, which contains accumulated play-by-play data from 1999 through 2021, with additional predictors beginning in 2006. We hope to create a parsimonious, streamlined model capable of predicting the score differential of an NFL game within some reasonable confidence interval. While prediction is a outcome and measure of success for any model, we also hope to use inference from our models. While we will have some variables with relatively clear-cut relationships with score differential, our analysis will also focus on how more “strategic” variables relate to success. More turnovers in a game and more total yards should correlate strongly with score differential, but we are interested in variables that have a more unclear relationship with the final outcome. Are missed extra point attempts indicative of the team as a whole having a bad day? What about third down conversion rate? And quarterback hits? These are the kinds of interactions and trends we hope to expose in our model. By using metrics that are not generally used to predict game outcomes, we hope to find insight into predicting wins that are not conventionally expected.
 
 
-<<<<<<< HEAD
 \section{Data Cleaning, EDA}
 
 ```{r, results='hide', echo=F, eval=F,warning=F}
