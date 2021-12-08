@@ -345,10 +345,6 @@ step.both = step(step.back,
 step.both.int = step(step.back, 
                  scope = c(lower = Score_Dif ~ . - Game_id - Team_Name -year, upper = formula(Score_Dif ~ (. - Game_id - Team_Name)^2)), 
                  direction = "both", trace = F)
-step.both.int = step(step.back, 
-                 scope = c(lower = Score_Dif ~ . - Game_id - Team_Name -year, upper = formula(Score_Dif ~ (. - Game_id - Team_Name)^2)), 
-                 direction = "both", trace = F)
-formula(step.both)
 ```
 
 ```{r}
