@@ -115,13 +115,9 @@ data_2021$year <- 2021
 data_2019$year <- 2019
 data_2018$year <- 2018
 data_2017$year <- 2017
-data_2021_2 = data.frame(data_2021)
-data_2019_2 = data.frame(data_2019)
-data_2018_2 = data.frame(data_2018)
-data_2017_2 = data.frame(data_2017)
 
-data_2018_2019 <- rbind(data_2018_2, data_2019_2)
-data_2017_19 <- rbind(data_2017_2, data_2018_2, data_2019_2)
+data_2018_2019 <- rbind(data_2018, data_2019)
+data_2017_19 <- rbind(data_2017, data_2018, data_2019)
 
 
 g.score <- ggplot(data_2019, aes(x=Score_Dif)) + 
@@ -206,7 +202,7 @@ set.seed(139)
 for(i in 1:nrow(combs)) {
   temp_forest <- randomForest(Score_Dif~.-Game_id-Team_Name-year,data=data_2017_19, mtry = combs$mtry[i], maxnodes = combs$maxnodes[i], ntree=200)
   combs$RMSE_train[i] <- RMSE(data_2017_19$Score_Dif, temp_forest$predicted)
-  combs$RMSE_test[i] <- RMSE(data_2021$Score_Dif, predict(temp_forest, new = data_2021_2))
+  combs$RMSE_test[i] <- RMSE(data_2021$Score_Dif, predict(temp_forest, new = data_2021))
 }
 combs$RMSE_difference <- combs$RMSE_test - combs$RMSE_train
 
