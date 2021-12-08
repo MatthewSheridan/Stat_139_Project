@@ -108,7 +108,7 @@ data_2018 = clean(data18)
 data_2019 = clean(data19)
 data_2020 = clean(data20)
 data_2021 = clean(data21)
-
+data_2021_2 = data.frame(data_2021)
 data_2019_2 = data.frame(data_2019)
 data_2018_2 = data.frame(data_2018)
 data_2019_2$year <- 2019
