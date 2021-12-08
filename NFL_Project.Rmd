@@ -50,7 +50,7 @@ data21 <- load_pbp(2021)
 
 #unique(data1$game_id)
 clean = function(data1){
-  names = c("Game_id","Team_Name","Home","TFL", "QB_Hit", "Pass_Yrd","Rush_Yrd", "TD","FG_attempt","XP_missed","FG_missed","FUM","INT","Fourth_Dwn_Con","Third_Dwn_Con","Pen", "Score_Dif")
+  names = c("Game_id","Team_Name","Home","TFL", "QB_Hit", "Pass_Yrd","Rush_Yrd","FG_attempt","XP_missed","FG_missed","FUM","INT","Fourth_Dwn_Con","Third_Dwn_Con","Pen", "RedZone_Plays", "Unique_Receivers","Shotgun_Plays","Score_Dif")
   
   df <- data.frame()
   
@@ -64,7 +64,6 @@ clean = function(data1){
                   sum(temp$qb_hit[temp$posteam == j] == 1, na.rm=TRUE), #how many times team's QB was hit
                   sum(temp$passing_yards[temp$posteam == j], na.rm=TRUE), #team passing yards
                   sum(temp$rushing_yards[temp$posteam == j], na.rm=TRUE), #team rushing yards
-                  sum(temp$touchdown[temp$posteam == j], na.rm=TRUE), #team touchdowns
                   sum(temp$field_goal_attempt[temp$posteam == j], na.rm=TRUE), #team field goal attempts
                   sum(temp$extra_point_result[temp$posteam == j]=="failed" | 
                         temp$extra_point_result[temp$posteam == j]=="blocked", na.rm=TRUE), #exp missed
@@ -75,6 +74,9 @@ clean = function(data1){
                   sum(temp$fourth_down_converted[temp$posteam == j], na.rm=TRUE), #4th down conversions
                   sum(temp$third_down_converted[temp$posteam == j], na.rm=TRUE), #3rd down conversions
                   sum(temp$penalty[temp$posteam == j & temp$penalty_team == j], na.rm=TRUE), #number of penalties
+                  sum(temp$yardline_100[temp$posteam == j] < 20, na.rm=TRUE), #number of Red Zone Plays
+                  length(unique(temp$receiver_player_id[temp$posteam == j])) - 1, #number of unique receivers (remove NA)
+                  sum(temp$shotgun[temp$posteam == j], na.rm=TRUE), #number of plays out of the Shotgun Formation
                   temp$result[1]*ifelse(j==temp$away_team[1], -1, 1) #score differential
                   )
       df <- rbind(df, to_add)
@@ -84,13 +86,13 @@ clean = function(data1){
   colnames(df) = names
   
   df = df %>% 
-  mutate_at(c("Home","TFL", "QB_Hit", "Pass_Yrd","Rush_Yrd", "TD","FG_attempt","XP_missed","FG_missed","FUM","INT","Fourth_Dwn_Con","Third_Dwn_Con","Pen", "Score_Dif"), as.numeric)
+  mutate_at(c("Home","TFL", "QB_Hit", "Pass_Yrd","Rush_Yrd", "FG_attempt","XP_missed","FG_missed","FUM","INT","Fourth_Dwn_Con","Third_Dwn_Con","Pen", "RedZone_Plays", "Unique_Receivers", "Shotgun_Plays", "Score_Dif"), as.numeric)
   return(df)
 }
 
+
 RMSE <- function(y.obs, y.pred){
   return(sqrt(mean((y.obs-y.pred)^2)))
-  
 }
 ```
 
@@ -158,19 +160,16 @@ g.4 <- ggplot(data_2019, aes(x=Fourth_Dwn_Con)) +
 g.qb <- ggplot(data_2019, aes(x=QB_Hit)) + 
   geom_histogram(bins=30, color="black", size=0.2) +
   ggtitle("QB Hits", subtitle="2019 NFL Games")
-g.td <- ggplot(data_2019, aes(x=TD)) + 
-  geom_histogram(bins=30, color="black", size=0.2) +
-  ggtitle("TDs", subtitle="2019 NFL Games")
 
 #gridExtra::grid.arrange(g.pass, g.rush, nrow=1)
 gridExtra::grid.arrange(g.fum_sc, g.3_sc)
-gridExtra::grid.arrange(g.pass, g.rush, g.3, g.4, g.qb, g.td, nrow=3)
+gridExtra::grid.arrange(g.pass, g.rush, g.3, g.4, g.qb, nrow=3)
 
 ```
 
 \textbf{Initial Modeling:}
 
-The code for initializing the models has been hidden for space constraints. The linear model was using all predictors, the stepwise model stepped from an intercept only model to all predictors, and the randomforest has not been tuned (YET) and uses all predictors, as well as the default parameters. We can see that the RMSE's are pretty close together for all the models, but the stepwise linear model seems to outperform all.
+The code for initializing the models has been hidden for space constraints. The linear model was using all predictors, the stepwise model stepped from an intercept only model to all predictors, and the randomforest has not been tuned (YET) and uses all predictors, as well as the default parameters. We can see that the RMSE's are pretty close together for all the models, but the linear linear model seems to outperform all.
 
 ```{r, warning=F, echo=F}
 lm1 = lm(Score_Dif~., data=data_2019[,seq(3, ncol(data_2019))])
@@ -211,6 +210,46 @@ rmse
 National Football League data provides a ripe opportunity for statistical analysis, especially when able to access play-by-play level data using the `nflfastR` package. While most variables have a slight right skew to them and only take on positive values, this did not present tremendous challenges for our models. Going forward, we're interested to continue investigating the impact of variables that provide a clear relationship towards "success" in a game--such as total passing yards or total rushing yards--as well as more "strategic" variables such as the number of third and fourth down conversions. Given the  violations of symmetric distributions in many of the predictors and the potential for non-linear relationships to arise, examining the performance and interpretations of Random Forest models will also be a focus in our analysis. 
 
 
+
+```{r}
+
+maxnodes <- c(100, 500, 1000)
+mtry <- c(1,5,8,10,12)
+
+combs <- expand.grid(mtry, maxnodes)
+colnames(combs) <- c("mtry", "maxnodes")
+combs$RMSE_train <- rep(NA, nrow(combs))
+combs$RMSE_test <- rep(NA, nrow(combs))
+
+set.seed(139)
+for(i in 1:nrow(combs)) {
+  temp_forest <- randomForest(Score_Dif~.-Game_id-Team_Name-year,data=data_2017_19, mtry = combs$mtry[i], maxnodes = combs$maxnodes[i], ntree=200)
+  combs$RMSE_train[i] <- RMSE(data_2017_19$Score_Dif, temp_forest$predicted)
+  combs$RMSE_test[i] <- RMSE(data_2021$Score_Dif, predict(temp_forest, new = data_2021_2))
+}
+combs$RMSE_difference <- combs$RMSE_test - combs$RMSE_train
+
+rf1 <- randomForest(Score_Dif~.-Game_id-Team_Name-year,
+                    data=data_2017_19,
+                    mtry = combs[which.min(combs$RMSE_test),]$mtry, 
+                    maxnodes = combs[which.min(combs$RMSE_test),]$maxnodes, 
+                    ntree=200)
+  
+  
+
+varImpPlot(rf1)
+
+```
+
+
+A random forest was fit using the combined game data from years 2017-2019. One advantage to using a random forest in this case is that it represents a good way to measure the predictive power of the predictors chosen, due to the non-parametric nature of the random forest and lack of assumptions needed to fit the model. After fitting a random forest with desired predictors, we can plot the Variable Importance of the predictors, to see how much predictive power is lost when the predictor is removed from the tree, and the greater the disparity the more important said predictor is. The one disadvantage to this method is that while we are able to tell that a certain predictor is very important, we are unable to interpret whether the relationship between the predictor and the response is positive or negative. For example, we see that QB_hits (the number of hits a team's quarterback takes) is considered important. We may assume, as logic follows, that minimizing the amount of times your quarterback is hit is most beneficial for a large score differential. However, we cannot determine that this is the case from only this plot. 
+
+A random forest was fit over a range of different hyper-parameters. Different values of mtry, ranging from 1 (essentially a random forest) to 12, reflect the number of variables randomly sampled at each split within the random forest, where higher values add more complexity. Secondly is maxnodes, which represents the maximum number of terminal nodes present in the resulting forest. The number of trees within our forest was fixed at 200 to maintain a reasonable run time. After cross-validating the RMSE between predicted and true values among training (2017-2019 data) and testing (2021 data) sets, the lowest test set RMSE was selected, and it was found that the optimal set of hyper parameters from our tests is mtry = 8 and maxnodes = 1000. Looking at the calculated differences in RMSEs on training and testing data, no models appear to be egregiously over-fit. Our selected hyper-parameters do not produce one of the largest magnitude RMSE differences, so it appears that our tuned model is acceptable.
+
+Using the aforementioned hyper-parameters, the model was fit again and a variable importance plot was generated. This plot shows which variables have the most predictive power in the random forest. We can see that the highest predictors in terms of variable importance are Red Zone Plays and rushing yards, which appear to be in a tier of their own. This is followed by another tier that includes shotgun plays, QB hits, interceptions and passing yards. The rest of the predictors are of much lower importance based off of this plot. This suggests that these mentioned predictors have the most important relationships with score differential for any given game.
+
+It seems obvious that the number of touchdowns a team scores would have large impact on their score differential. In the broader context of football, it makes sense that red zone plays would be considered highly important for predicting score differential because, considering that the red zone is the area within 20 yards of the opponent's end zone, this is where points are scored, and the more plays that are run in this area the more points should be scored. It also makes logical sense that rushing yards should be almost as important, both because teams that are leading by large amounts tend to run much more in order to posses the ball, and conversely teams that have great success running tend to have more control of the game and time of possession. In terms of the "second tier" predictors, QB_hits makes sense as a solid predictor. Presumably, the fewer hits your quarterback is taking, then the better chance you have of putting up more points than your opponent. The number of interceptions a team gets gives more opportunities to score while having to drive fewer yards down the field than if the ball was obtained otherwise (such as a punt, or a kickoff). The number of passing yards and shotgun plays are slightly less interpretable in terms of their importance. Passing yards could be a positive predictor because a team that amasses lots of passing yardage likely scores many points. However, a team that is behind by a large amount may gain many passing yards towards the end of the game in a meaningless effort to catch up to the winning team (this is referred to as "garbage time" statistics, when the outcome of the game is relatively determined, but play still occurs and players amass stats). Similarly, the number of stats taken out of the shotgun could be the mark of a team being successfully aggressive in their passing game, or that a team is struggling behind and trying to play catch-up. It would be best to investigate the nature of the relationship of these predictors with our chosen response in some sort of other linear model in order to examine the sign and size of the associated coefficient.
+
 \section{LMER Modeling}
 
 ```{r}
@@ -250,7 +289,7 @@ data_2017_19_test$wins = ifelse(data_2017_19$Score_Dif > 0, 1, 0)
 
 win.log = glm(wins~.-Score_Dif-year-Rush_Yrd, data=data_2017_19_test[,seq(3, ncol(data_2017_19_test))], family="binomial")
 
-best.log = glm(wins~Rush_Yrd+QB_Hit+INT+FG_attempt, data = data_2017_19_test, family="binomial")
+best.log = glm(wins~RedZone_Plays + Rush_Yrd+Shotgun_Plays +QB_Hit+INT, data = data_2017_19_test, family="binomial")
 
 init_coef_log = data.frame(summary(win.log)$coefficients)
 best_coef_log = data.frame(summary(best.log)$coefficients)
@@ -265,19 +304,29 @@ ggplot(rbind(init_coef_log, best_coef_log), aes(fill=type, y=Estimate, x=coef)) 
 ```
 
 ```{r}
-predicted_wins_initial = 1*(win.log$fitted.values>0.5) 
-predicted_wins_best = 1*(best.log$fitted.values>0.5)
+new_2021 = data.frame(data_2021)
+new_2021$year = 2021
 
-pred.acc.init = sum(predicted_wins_initial == data_2017_19_test$wins)/nrow(data_2017_19_test); pred.acc.init
-pred.acc.best = sum(predicted_wins_best == data_2017_19_test$wins)/nrow(data_2017_19_test); pred.acc.best
+new_2021$wins = ifelse(data_2021$Score_Dif > 0, 1, 0)
+
+predicted_wins_initial = 1*(predict(win.log, type = "response")>0.5) 
+predicted_wins_best = 1*(predict(best.log, type = "response")>0.5)
+
+Train_Acc_Init = sum(predicted_wins_initial == data_2017_19_test$wins)/nrow(data_2017_19_test)
+Train_Acc_Best = sum(predicted_wins_best == data_2017_19_test$wins)/nrow(data_2017_19_test)
+
+pred_test_init = 1*(predict(win.log, newdata=new_2021, type = "response")>0.5) 
+pred_test_best = 1*(predict(best.log, newdata=new_2021, type="response")>0.5)
+
+Test_Acc_Init = sum(pred_test_init == new_2021$wins)/nrow(new_2021)
+Test_Acc_Best = sum(pred_test_best == new_2021$wins)/nrow(new_2021)
+
+data.frame(Train_Acc_Init, Train_Acc_Best, Test_Acc_Init, Test_Acc_Best)
 ```
 
 Interesting extensions:
 
 ```{r}
-new_2021 = data.frame(data_2021)
-new_2021$year = 2021
-
 ne.game.best = predict(best.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==1,], type="response"); ne.game.best
 
 tb.game.best = predict(best.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==0,], type="response"); tb.game.best
@@ -285,6 +334,7 @@ tb.game.best = predict(best.log, newdata = new_2021[new_2021$Game_id=="2021_04_T
 ne.game.init = predict(win.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==1,], type="response"); ne.game.init
 
 tb.game.init = predict(win.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==0,], type="response"); tb.game.init
+
 ```
 
 
