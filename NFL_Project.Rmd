@@ -110,17 +110,16 @@ Furthermore, we can do a preliminary investigation of the relationships between 
 data_2017 = clean(data17)
 data_2018 = clean(data18)
 data_2019 = clean(data19)
-data_2021 = data.frame(clean(data21), year=2021)
-data_2020 = clean(data20)
 data_2021 = clean(data21)
+data_2021$year <- 2021
+data_2019$year <- 2019
+data_2018$year <- 2018
+data_2017$year <- 2017
 data_2021_2 = data.frame(data_2021)
 data_2019_2 = data.frame(data_2019)
 data_2018_2 = data.frame(data_2018)
 data_2017_2 = data.frame(data_2017)
-data_2021_2$year <- 2021
-data_2019_2$year <- 2019
-data_2018_2$year <- 2018
-data_2017_2$year <- 2017
+
 data_2018_2019 <- rbind(data_2018_2, data_2019_2)
 data_2017_19 <- rbind(data_2017_2, data_2018_2, data_2019_2)
 
@@ -190,35 +189,6 @@ The code for initializing the models has been hidden for space constraints. The 
 lm1 = lm(Score_Dif~. -Team_Name -year, data=data_2017_19[,seq(2, ncol(data_2017_19))])
 ```
 
-
-```{r, echo=F, eval=F}
-rmse_2021 = c(RMSE(data_2021$Score_Dif, predict(lm1, newdata=data_2021)),
-              RMSE(data_2021$Score_Dif, predict(step1, newdata=data_2021)),
-              RMSE(data_2021$Score_Dif, predict(RF1, newdata=data_2021)))
-
-rmse_2020 = c(RMSE(data_2020$Score_Dif, predict(lm1, newdata=data_2020)),
-              RMSE(data_2020$Score_Dif, predict(step1, newdata=data_2020)),
-              RMSE(data_2020$Score_Dif, predict(RF1, newdata=data_2020)))
-
-rmse_2019 = c(RMSE(data_2019$Score_Dif, predict(lm1)),
-              RMSE(data_2019$Score_Dif, predict(step1)),
-              RMSE(data_2019$Score_Dif, predict(RF1)))
-
-rmse_2018 = c(RMSE(data_2018$Score_Dif, predict(lm1, newdata=data_2018)),
-              RMSE(data_2018$Score_Dif, predict(step1, newdata=data_2018)),
-              RMSE(data_2018$Score_Dif, predict(RF1, newdata=data_2018)))
-
-rmse_2017 = c(RMSE(data_2017$Score_Dif, predict(lm1, newdata=data_2017)),
-              RMSE(data_2017$Score_Dif, predict(step1, newdata=data_2017)),
-              RMSE(data_2017$Score_Dif, predict(RF1, newdata=data_2017)))
-
-rmse = data.frame(rmse_2017, rmse_2018, rmse_2019, rmse_2020, rmse_2021, row.names = c("Linear", "Step", "RF1"))
-rmse
-```
-
-\textbf{Conclusion:}
-
-National Football League data provides a ripe opportunity for statistical analysis, especially when able to access play-by-play level data using the `nflfastR` package. While most variables have a slight right skew to them and only take on positive values, this did not present tremendous challenges for our models. Going forward, we're interested to continue investigating the impact of variables that provide a clear relationship towards "success" in a game--such as total passing yards or total rushing yards--as well as more "strategic" variables such as the number of third and fourth down conversions. Given the  violations of symmetric distributions in many of the predictors and the potential for non-linear relationships to arise, examining the performance and interpretations of Random Forest models will also be a focus in our analysis. 
 
 
 
@@ -361,7 +331,7 @@ data_2017_19_test = data.frame(data_2017_19)
 
 data_2017_19_test$wins = ifelse(data_2017_19$Score_Dif > 0, 1, 0)
 
-win.log = glm(wins~.-Score_Dif-year-Rush_Yrd, data=data_2017_19_test[,seq(3, ncol(data_2017_19_test))], family="binomial")
+win.log = glm(wins~.-Score_Dif-year, data=data_2017_19_test[,seq(3, ncol(data_2017_19_test))], family="binomial")
 
 best.log = glm(wins~RedZone_Plays + Rush_Yrd+Shotgun_Plays +QB_Hit+INT, data = data_2017_19_test, family="binomial")
 
@@ -401,13 +371,15 @@ data.frame(Train_Acc_Init, Train_Acc_Best, Test_Acc_Init, Test_Acc_Best)
 Interesting extensions:
 
 ```{r}
-ne.game.best = predict(best.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==1,], type="response"); ne.game.best
-
-tb.game.best = predict(best.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==0,], type="response"); tb.game.best
 
 ne.game.init = predict(win.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==1,], type="response"); ne.game.init
 
 tb.game.init = predict(win.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==0,], type="response"); tb.game.init
+
+ne.game.best = predict(best.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==1,], type="response"); ne.game.best
+
+tb.game.best = predict(best.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==0,], type="response"); tb.game.best
+
 
 ```
 
