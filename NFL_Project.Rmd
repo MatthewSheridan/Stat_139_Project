@@ -321,6 +321,8 @@ formula(step.both)
 
 \section{Logistic applications:}
 
+Although our main focus was predicting score differential, we thought that predicting the probability of a win would be an interesting extension to our project, and would highlight some of the oversights of our models as well as some interesting scenarios that just can’t be handled meaningfully (looking at you, Bill Belichick). In this section, we fit a glm model with the parameter of being in the binomial family for the response, which in this case is wins. Our assumptions are minimal, as seen in the lectures, and all we need is independent observations which we generally have. We recorded each teams’ wins for each game, to be used as a response. Then, we created two glm’s, one with the top 5 predictors from the random forest variable importance (Rush Yards, RedZone Plays, Qb Hits, Shotgun plays, and interceptions) as well as a model with all predictors except for the game id, year, team, and score differential. Using these models, we could create models showing what things contributed to the probability of a win. Doing this, we could compare the two models’ coefficients and see what changed from model to model:
+
 ```{r}
 
 data_2017_19_test = data.frame(data_2017_19)
@@ -343,6 +345,11 @@ ggplot(rbind(init_coef_log, best_coef_log), aes(fill=type, y=Estimate, x=coef)) 
     geom_bar(position="dodge", stat="identity") + coord_flip()
 ```
 
+Our plot shows most notably that the intercept lost magnitude when predictors were removed, and as a result changed the magnitude of the kept predictors. Most importantly of which was rushing yards, whose coefficient decreased a lot from the initial model (which may not look like a ton on this plot). The decrease from the initial model to the tuned model was 0.016 to 0.013, and is significant because rushing yards are usually on the scale of about 120 to 180 per team per game. 
+
+Interestingly, both models had a worse train accuracy than test accuracy, which was in the years 2017-2019, as seen in the table below. Showing that our model wasn’t too overfit and did have some predictive power. 
+
+
 ```{r}
 new_2021 = data.frame(data_2021)
 new_2021$year = 2021
@@ -364,7 +371,11 @@ Test_Acc_Best = sum(pred_test_best == new_2021$wins)/nrow(new_2021)
 data.frame(Train_Acc_Init, Train_Acc_Best, Test_Acc_Init, Test_Acc_Best)
 ```
 
-Interesting extensions:
+Using these models, we were able to explore some interesting extensions, such as the Patriots week 4 bout versus the Buccaneers. In this game, the Patriots exceeded expectations and held the defending super bowl champions to 6 points in the first half, and 13 in the second, good for a win in many weeks. Importantly, they played them close all game and the Bucs won only on a last second field goal. What is strange, however, is that our model showed the Patriots as having a 3.78% probability of a win in the tuned model, and a 1.21% chance in the initial model. The Bucs were given a 70.2% and 86.5% probability in the tuned and untuned model, respectively. So, why did our model completely miss on a game that, honestly, should have been won by the Patriots? Taking a closer look, we can see that the Pats had -1 rush yards (no, not an error). Our model heavily favors rush yards and gives passing yards almost no weights, especially in the tuned model where passing yards meant nothing. The Patriots often perform unusual game plans, such as only throwing 3 times in a 14-10 win versus the Buffalo Bills on December 6, 2021. These game plans clearly throw off our model, showing that it really isn’t robust to model a win probability logistically off of in game data (for the Patriots, at least). There’s something about the “eye test” (a theoretical, informal “test” that involves years of watching and analyzing games, making snap judgements about outcomes and decisions while watching the game). Someone watching the week 4 Patriots-Bucs game surely wouldn't be giving the Patriots a ~4% chance of winning after seeing them absolutely dominate in the first half, yet our model says that not having any rush yards is highly correlated with losing the game. 
+
+Importantly, the model did actually get that prediction correct, but odd scenarios like this can mess with the model's accuracy (off the top of my head, the falcon’s game versus the saints where they had 34 rushing yards and won is an example of a false prediction). Overall, rating one metric too highly can mess with the model, just as in any model, so we must be careful about determining direct causation. 
+
+In the long run, we’d be able to claim that rushing for more yards likely means you are winning and don’t have to pass, which points to there being a win, but a team could just rush for every play and rack up the yards and still lose, which is why we cannot say that rushing yards increase your chances of winning, but rather we associate higher amounts of rushing yards with a higher chance of winning. 
 
 ```{r}
 
@@ -376,6 +387,8 @@ ne.game.best = predict(best.log, newdata = new_2021[new_2021$Game_id=="2021_04_T
 
 tb.game.best = predict(best.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==0,], type="response"); tb.game.best
 
+
+data.frame(NE_Chance_Tuned = ne.game.best, NE_Chance_Untuned = ne.game.init, TB_Chance_Tuned = tb.game.best, TB_Chance_Untuned = tb.game.init, row.names = '')
 
 ```
 
