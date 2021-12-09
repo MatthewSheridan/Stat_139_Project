@@ -289,8 +289,7 @@ In the broader context of football, it makes sense that red zone plays would be 
 
 \textbf{Ridge Regression and LASSO}
 
-
-```{r, echo=F, message=F, warning=F, fig.show='hide'}
+```{r, echo=F, message=F, warning=F, results='hide', fig.show='hide'}
 library(glmnet)
 library(Rcpp)
 library(Matrix)
