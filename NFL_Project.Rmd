@@ -16,9 +16,9 @@ R is a natural environment in which to analyze this as it contains the nflfastR 
 
 In our project, we hope to answer the following questions:
 
-How do in-game statistics relate to the final score differential of a game? Which predictors are most significantly associated with score differential? What about predictors that aren’t classically associated with offense?
+1. How do in-game statistics relate to the final score differential of a game? Which predictors are most significantly associated with score differential? What about predictors that aren’t classically associated with offense?
 
-Do some predictors have a different impact as the game progresses? For instance, the first half might be more indicative of team strategy and the second half of the current score in the game. 
+2. Do some predictors have a different impact as the game progresses? For instance, the first half might be more indicative of team strategy and the second half of the current score in the game. 
 
 \section{Data Cleaning, EDA}
 
@@ -93,7 +93,6 @@ RMSE <- function(y.obs, y.pred){
 ```
 
 ```{r, echo=F, message=F}
-#DO EDA HERE
 data_2017 = clean(data17)
 data_2018 = clean(data18)
 data_2019 = clean(data19)
@@ -224,8 +223,8 @@ As discussed previously in our EDA, the assumptions of linear regression do gene
 
 ```{r, warning=F, echo=F}
 lm1 = lm(Score_Dif~. -Team_Name -year, data=data_2017_19[,seq(2, ncol(data_2017_19))])
+plot(lm1, which=c(1,2))
 ```
-
 
 \section{Analysis}
 
@@ -237,6 +236,8 @@ We also ran stepwise variable selection backwards and in both directions, per th
 #Stepwise Backward
 step.back = step(lm1, direction = "backward", k = 2, trace = F)
 formula(step.back)
+plot(step.both, which=c(1,2))
+
 ```
 We can note that this immediately removes TLF and Pen; additionally, this model has a Multiple R-squared = 0.5439, an F-statistic of 135.2 and a p-value < 0.00000000000000022. In the coefficients table in the appendix, we can also see that XP_missed has a p-value > 0.05, indicating overfitting, which does not bode well for the more complex stepwise model. 
 
@@ -245,6 +246,7 @@ With the both directional stepwise variable selection model starting from the ba
 #Stepwise Both
 step.both = step(lm1, scope = c(lower = formula(Score_Dif ~ 1), upper = formula(Score_Dif ~ (. - Game_id - Team_Name)^2)), direction = "both", trace = F)
 formula(step.both)
+plot(step.both, which=c(1,2))
 ```
 
 However, although the model appropriately disposes of countless insignificant predictors, it still includes several that are insignificant by their p-value, namely: Home, Pass_Yrd, Fourth_Dwn_Con, Pass_Yrd:Unique_Receivers, QB_Hit:Pass_Yrd, XP_missed:RedZone_Plays, QB_Hit:FG_attempt, QB_Hit:FUM, INT:Shotgun_Plays, and FG_attempt:Third_Dwn_Con, most of which are interaction terms that correspond to specific in-game situations or patterns. For example, while a home field advantage helps, the reasons for the advantage are often beyond numerical quantities such as being used to the weather or loud fans. Passing yards are obviously correlated with the number of unique receivers or QB hits since QB's cannot throw as much when hit more often/with less time in the pocket, and a smaller number of targetable receivers limits the number of potential yards since the team is more susceptible to defensive strategies. And of course the number of third down conversions inversely relates to the number of field goal attempts. That relates to simple football rules and strategies.
@@ -371,7 +373,7 @@ We can be thankful for this result, albeit expected, since the Lasso regression'
 
 
 
-\section{LMER Modeling}
+\section{Linear Mixed-Effects Modeling}
 
 ```{r, eval=T, echo=F, warning=F}
 lmer_all <- lmer(Score_Dif ~ Home +TFL + QB_Hit + Pass_Yrd + Rush_Yrd + FG_attempt + 
@@ -417,31 +419,6 @@ qqline(resid(lmer_all))
 hist(coef(lmer_all)$Team_Name[,1], main="Histogram of Random Intercept Estimates")
 ```
 
-
-```{r, echo=F}
-list.models <- list(lmer_all, lmer_step, lmer_step_slope, lm1, step.both, step.both.int)
-list.all.models <- list(lmer_all, lmer_step, lmer_step_slope, lm1, step.both, step.both.int)
-model.results <- data.frame(unlist(lapply(list.models, AIC)),
-                            unlist(lapply(list.models, BIC)),
-                            unlist(lapply(list.models, predict, newdata=data_2017_19) %>% lapply(RMSE, data_2017_19$Score_Dif)),
-                            unlist(lapply(list.models, predict, newdata=data_2021) %>% lapply(RMSE, data_2021$Score_Dif))) %>% data.frame()
-
-names(model.results) <- c("AIC", "BIC", "RMSE.Train", "RMSE.Test")
-rownames(model.results) <- c("lmer", "lmer_stepwise", "lmer_stepwise_rslope", "lm.all", "lm.step", "lm.step.interaction")
-model.rmse <- rbind(c(RMSE(predict(lassos, X), data_2017_19$Score_Dif), 
-                      RMSE(predict(lassos, Xtest), data_2021$Score_Dif)), 
-                    c(RMSE(predict(ridges, X), data_2017_19$Score_Dif), 
-                      RMSE(predict(ridges, Xtest), data_2021$Score_Dif)),
-                    c(RMSE(rf1$predicted, data_2017_19$Score_Dif),
-                      RMSE(predict(rf1, data_2021), data_2021$Score_Dif))) %>% data.frame()
-names(model.rmse) <- c("RMSE.Train", "RMSE.Test")
-
-rmse.models <- rbind(model.results[,c(3, 4)], model.rmse)
-rownames(rmse.models) <- c("lmer", "lmer_stepwise", "lmer_stepwise_rslope", "lm.all", "lm.step", "lm.step.interaction", "Ridge", "Lasso", "Random Forest")
-knitr::kable(rmse.models)
-
-knitr::kable(model.results[,1:2])
-```
 
 
 \section{Logistic applications:}
@@ -517,7 +494,7 @@ data.frame(NE_Chance_Tuned = ne.game.best, NE_Chance_Untuned = ne.game.init, TB_
 
 \section{Extension: 1st Half Predictors}
 
-	Many strategies during NFL games are determined by the context of the game as it unfolds. For instance, a team that is trailing greatly in the 4th quarter will be more inclined to throw risky passes downfield, resulting in meaningless higher potential passing yards, interceptions, quarterback hits, unique receivers, and other related predictors. Similarly, a team with a sizable lead late in the game is incentivized to be more conservative with their play calling; these teams are more likely to run the ball and attempt to let the clock expire. A team’s play makeup in the first half, however, may be more resulting from premeditated strategy than the context of the game itself. We examine multiple first-half predictors, including run-pass play ratio, air yards, and time of possession. All of these new predictors were found to have symmetrical distributions, except for the run-pass ratio, which was right skewed and fixed with a log transformation. 
+Many strategies during NFL games are determined by the context of the game as it unfolds. For instance, a team that is trailing greatly in the 4th quarter will be more inclined to throw risky passes downfield, resulting in meaningless higher potential passing yards, interceptions, quarterback hits, unique receivers, and other related predictors. Similarly, a team with a sizable lead late in the game is incentivized to be more conservative with their play calling; these teams are more likely to run the ball and attempt to let the clock expire. A team’s play makeup in the first half, however, may be more resulting from premeditated strategy than the context of the game itself. We examine multiple first-half predictors, including run-pass play ratio, air yards, and time of possession. All of these new predictors were found to have symmetrical distributions, except for the run-pass ratio, which was right skewed and fixed with a log transformation. 
 
 These predictors are incorporated into previously generated models to weigh their comparative importance with older predictors, while removing predictors similar to our first half ones (rushing yards, passing yards, QB hits).
 
@@ -561,9 +538,6 @@ rf_extended <- randomForest(Score_Dif~.-Game_id-Team_Name-year,
                       ntree=200)
 varImpPlot(rf_extended)
 
-
-
-
 step.backward.extended = step(lm(Score_Dif~.- Game_id - Team_Name -year, data=Extended_Data), scope = c(lower = formula(Score_Dif ~1), upper = formula(Score_Dif ~ (. - Game_id - Team_Name -year))), direction = "backward", trace =F)
 
 
@@ -572,10 +546,41 @@ step.both.extended = step(lm(Score_Dif~.- Game_id - Team_Name -year, data=Extend
 
 ```
 
-
-	We also conducted backwards/both selection based on AIC to see if the new 1st half variables are present. We see that backward and both selection yield the same models, and none of the 1st half predictors are present in any of them. Perhaps either first half predictors are not as indicative of strategy as we thought, or they are not that influential in the final score differential. 
+We also conducted backwards/both selection based on AIC to see if the new 1st half variables are present. We see that backward and both selection yield the same models, and none of the 1st half predictors are present in any of them. Perhaps either first half predictors are not as indicative of strategy as we thought, or they are not that influential in the final score differential. 
 
 \section{Conclusion}
 
-National Football League data provides a ripe opportunity for statistical analysis, especially when able to access play-by-play level data using the `nflfastR` package. While most variables have a slight right skew to them and only take on positive values, this did not present tremendous challenges for our models. Going forward, we're interested to continue investigating the impact of variables that provide a clear relationship towards "success" in a game--such as total passing yards or total rushing yards--as well as more "strategic" variables such as the number of third and fourth down conversions. Given the  violations of symmetric distributions in many of the predictors and the potential for non-linear relationships to arise, examining the performance and interpretations of Random Forest models will also be a focus in our analysis. 
+```{r, echo=F}
+list.models <- list(lmer_all, lmer_step, lmer_step_slope, lm1, step.both, step.both.int)
+list.all.models <- list(lmer_all, lmer_step, lmer_step_slope, lm1, step.both, step.both.int)
+model.results <- data.frame(unlist(lapply(list.models, AIC)),
+                            unlist(lapply(list.models, BIC)),
+                            unlist(lapply(list.models, predict, newdata=data_2017_19) %>% lapply(RMSE, data_2017_19$Score_Dif)),
+                            unlist(lapply(list.models, predict, newdata=data_2021) %>% lapply(RMSE, data_2021$Score_Dif))) %>% data.frame()
+
+names(model.results) <- c("AIC", "BIC", "RMSE.Train", "RMSE.Test")
+rownames(model.results) <- c("lmer", "lmer_stepwise", "lmer_stepwise_rslope", "lm.all", "lm.step", "lm.step.interaction")
+model.rmse <- rbind(c(RMSE(predict(lassos, X), data_2017_19$Score_Dif), 
+                      RMSE(predict(lassos, Xtest), data_2021$Score_Dif)), 
+                    c(RMSE(predict(ridges, X), data_2017_19$Score_Dif), 
+                      RMSE(predict(ridges, Xtest), data_2021$Score_Dif)),
+                    c(RMSE(rf1$predicted, data_2017_19$Score_Dif),
+                      RMSE(predict(rf1, data_2021), data_2021$Score_Dif))) %>% data.frame()
+names(model.rmse) <- c("RMSE.Train", "RMSE.Test")
+
+rmse.models <- rbind(model.results[,c(3, 4)], model.rmse)
+rownames(rmse.models) <- c("lmer", "lmer_stepwise", "lmer_stepwise_rslope", "lm.all", "lm.step", "lm.step.interaction", "Ridge", "Lasso", "Random Forest")
+knitr::kable(rmse.models)
+
+knitr::kable(model.results[,1:2])
+```
+In the above, `lm.all` corresponds to the OLS model with all available predictors,`lm.step` is the OLS model chosen by backwards variable selection, and `lm.step.interaction` is the OLS model chosen by backward/forward variable selection including interaction terms. `lmer`, `lmer_stepwise`, and `lmer_stepwise_rslope` are linear mixed-effects models using all available predictors, predictors chosen using stepwise variable selection, and stepwise variable selection variables plus a random slope.
+
+In our final project deliverable we were able to expand on several different modeling methods and regression techniques, which produced varying formulas for our prediction of score differential in a given NFL game. As suspected, some predictors such as the number of red zone plays are significant in all models since they are so highly correlated to points scored. Others perform surprisingly poorly, like passing yards or penalties, and a few, especially QB hits, are the goldmine we hoped to find. Unique and rarely-considered predictors like this served as the impetus for our whole project, despite its various changes throughout the process. This makes perfect sense, as a quarterback with a weak offensive line or inability to scramble is less likely to be able to move the ball down the field. 
+
+Another gem from our study is the relative importance of the type of yardage gained. By and large, our models indicated that rushing yards were among the most significant predictors but passing yardage usually fell away and had noticeably lower $\beta$ coefficients. This does not mirror the average salaries of running/full backs compared to receivers, although backs are not the only players to gain yards by running the ball. Still, the average $25\%$ salary discrepancy found in a quick internet search seems large.
+
+The linear regressions work comparably well using the lm() function, working more accurately than we initially expected. In the end, the lm() function using the main effects of all available predictors had the lowest RMSE on the testing set (surprisingly) than our more convoluted models, although it might not be the most inferential model. One may not expect that this model would outperform one that takes part in variable selection, but this suggests that each of our predictors adds at least some non-negligible predictive power.
+
+In terms of future study expansions, with more time and computing power we could perform smaller analyses to create more specific predictors for pregame statistics based off of season performance. We were limited by complexity and time, and such a study would go far beyond the scope of this project. Prediction across seasons is far more difficult since players and coaching staff can change the chemistry, managers can have different goals in mind (rebuilding, pushing, tanking), or even international pandemics could all shake up a season’s outcome. Even between games injuries or family emergencies can change lineups, although those are almost impossible to model, theoretically. These extensions would require far more work--and are certainly done by team back offices--but the studies would be incredibly exciting and produce more interesting and informative models. It would be fun to test these against the Browns’, Lions, and Patriot historic best and worst seasons, just to see what brings teams to their knees or back from the brink of losing their fan base.
 
