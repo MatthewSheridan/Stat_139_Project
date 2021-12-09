@@ -215,16 +215,6 @@ Below, we plotted the distributions for a number of different potential predicto
 
 Furthermore, we can do a preliminary investigation of the relationships between some of the predictors and the outcome variable of score differential in 2019. Notably, we can see that the number of fumbles caused by a team is positively associated with score differential and that it is a relatively linear trend. The number of third down conversions is also positively associated with score differential, but this seems more complicated than a "simple" linear trend. Teams with a very large number (> 8) of third down conversions in a game appear to have a more negative score differential than teams with 5-7 third down conversions. This suggests that in future models investigating the effects of quadratic or higher order polynomial terms could be reasonable.
 
-Below is a correlation table examining all of the predictors we have in our aggregated dataset. Notably, no predictors have a correlation close to 1 or -1 which would indicate collinearity and cause problems with our model. The largest correlations appear between `TD` and `Pass_Yrd`, `TD` and `Rush_Yrd`, and `FG` and `FG_missed`, with most other correlations < |0.15|. 
-
-
-```{r, echo =F, warning=F}
-cor_matrix <- cor(data_2019[4:18])
-cor_matrix[upper.tri(cor_matrix)] <- NA
-cor_matrix <- cor_matrix %>% round(2)
-knitr::kable(cor_matrix)
-```
-
 
 \section{Initial Modeling:}
 
@@ -262,6 +252,13 @@ However, although the model appropriately disposes of countless insignificant pr
 
 \textbf{Random Forest}
 
+A random forest was fit using the combined game data from years 2017-2019. One advantage to using a random forest in this case is that it represents a good way to measure the predictive power of the predictors chosen, due to the non-parametric nature of the random forest and lack of assumptions needed to fit the model. After fitting a random forest, we can plot the Variable Importance of the predictors, to see how much predictive power is lost when the predictor is removed from the tree, and the greater the disparity the more important said predictor is. The one disadvantage to this method is that while we are able to tell that a certain predictor is very important, we are unable to interpret whether the relationship between the predictor and the response is positive or negative. For example, we see that QB_hits (the number of hits a team's quarterback takes) is considered important. We may assume, as logic follows, that minimizing the amount of times your quarterback is hit is most beneficial for a large score differential. However, we cannot determine that this is the case from only this plot. 
+
+A random forest was fit over a range of different hyper-parameters. Different values of mtry, ranging from 1 (essentially a random forest) to 12, reflect the number of variables randomly sampled at each split within the random forest, where higher values add more complexity. Secondly is maxnodes, which represents the maximum number of terminal nodes present in the resulting forest. The number of trees within our forest was fixed at 200 to maintain a reasonable run time. After cross-validating the RMSE between predicted and true values among training (2017-2019 data) and testing (2021 data) sets, the lowest test set RMSE was selected, and it was found that the optimal set of hyper parameters from our tests is mtry = 8 and maxnodes = 1000. Looking at the calculated differences in RMSEs on training and testing data, no models appear to be egregiously over-fit. Our selected hyper-parameters do not produce one of the largest magnitude RMSE differences, so it appears that our tuned model is acceptable.
+
+Using the aforementioned hyper-parameters, the model was fit again and a variable importance plot was generated. This plot shows which variables have the most predictive power in the random forest. We can see that the highest predictors in terms of variable importance are Red Zone Plays and rushing yards, which appear to be in a tier of their own. This is followed by another tier that includes shotgun plays, QB hits, interceptions and passing yards. The rest of the predictors are of much lower importance based on this plot. This suggests that these mentioned predictors have the most important relationships with score differential for any given game.
+
+
 ```{r, echo=F, warning=F}
 
 maxnodes <- c(100, 500, 1000)
@@ -286,17 +283,6 @@ rf1 <- randomForest(Score_Dif~.-Game_id-Team_Name-year,
                     maxnodes = combs[which.min(combs$RMSE_test),]$maxnodes, 
                     ntree=200)
 rf.varimp <- varImpPlot(rf1)
-
-```
-A random forest was fit using the combined game data from years 2017-2019. One advantage to using a random forest in this case is that it represents a good way to measure the predictive power of the predictors chosen, due to the non-parametric nature of the random forest and lack of assumptions needed to fit the model. After fitting a random forest, we can plot the Variable Importance of the predictors, to see how much predictive power is lost when the predictor is removed from the tree, and the greater the disparity the more important said predictor is. The one disadvantage to this method is that while we are able to tell that a certain predictor is very important, we are unable to interpret whether the relationship between the predictor and the response is positive or negative. For example, we see that QB_hits (the number of hits a team's quarterback takes) is considered important. We may assume, as logic follows, that minimizing the amount of times your quarterback is hit is most beneficial for a large score differential. However, we cannot determine that this is the case from only this plot. 
-
-A random forest was fit over a range of different hyper-parameters. Different values of mtry, ranging from 1 (essentially a random forest) to 12, reflect the number of variables randomly sampled at each split within the random forest, where higher values add more complexity. Secondly is maxnodes, which represents the maximum number of terminal nodes present in the resulting forest. The number of trees within our forest was fixed at 200 to maintain a reasonable run time. After cross-validating the RMSE between predicted and true values among training (2017-2019 data) and testing (2021 data) sets, the lowest test set RMSE was selected, and it was found that the optimal set of hyper parameters from our tests is mtry = 8 and maxnodes = 1000. Looking at the calculated differences in RMSEs on training and testing data, no models appear to be egregiously over-fit. Our selected hyper-parameters do not produce one of the largest magnitude RMSE differences, so it appears that our tuned model is acceptable.
-
-Using the aforementioned hyper-parameters, the model was fit again and a variable importance plot was generated. This plot shows which variables have the most predictive power in the random forest. We can see that the highest predictors in terms of variable importance are Red Zone Plays and rushing yards, which appear to be in a tier of their own. This is followed by another tier that includes shotgun plays, QB hits, interceptions and passing yards. The rest of the predictors are of much lower importance based on this plot. This suggests that these mentioned predictors have the most important relationships with score differential for any given game.
-
-
-```{r, echo=F}
-rf.varimp
 ```
 
 In the broader context of football, it makes sense that red zone plays would be considered highly important for predicting score differential because, considering that the red zone is the area within 20 yards of the opponent's end zone, this is where points are scored, and the more plays that are run in this area the more points should be scored. It also makes logical sense that rushing yards should be almost as important, both because teams that are leading by large amounts tend to run much more in order to possess the ball, and conversely teams that have great success running tend to have more control of the game and time of possession. In terms of the "second tier" predictors, QB_hits makes sense as a solid predictor. Presumably, the fewer hits your quarterback is taking, then the better chance you have of putting up more points than your opponent. The number of interceptions a team gets gives more opportunities to score while having to drive fewer yards down the field than if the ball was obtained otherwise (such as a punt, or a kickoff). The number of passing yards and shotgun plays are slightly less interpretable in terms of their importance. Passing yards could be a positive predictor because a team that amasses lots of passing yardage likely scores many points. However, a team that is behind by a large amount may gain many passing yards towards the end of the game in a meaningless effort to catch up to the winning team (this is referred to as "garbage time" statistics, when the outcome of the game is relatively determined, but play still occurs and players amass stats). Similarly, the number of stats taken out of the shotgun could be the mark of a team being successfully aggressive in their passing game, or that a team is struggling behind and trying to play catch-up. It would be best to investigate the nature of the relationship of these predictors with our chosen response in some sort of other linear model in order to examine the sign and size of the associated coefficient.
@@ -304,7 +290,7 @@ In the broader context of football, it makes sense that red zone plays would be 
 \textbf{Ridge Regression and LASSO}
 
 
-```{r, echo=F, message=F, warning=F, }
+```{r, echo=F, message=F, warning=F, fig.show='hide'}
 library(glmnet)
 library(Rcpp)
 library(Matrix)
@@ -364,7 +350,7 @@ The next modeling methods we chose to use were Ridge and Lasso regressions. Both
 
 First, we fit a Ridge regression model, which uses a squared $\lambda$ penalty factor, then the Lasso regression with its absolute value $\lambda$ followed. The Lasso typically has an advantage over the Ridge in that it punishes the $\beta_j$ coefficients more harshly, pushing the insignificant and unimportant predictors all the way to 0 if they are truly irrelevant. 
 
-```{r, echo=F}
+```{r}
 par(mfrow=c(1,2))
 plot(MSE.ridges.test~log(ridges$lambda,10),type="l", ylim = c(100, 250))
 plot(MSE.lassos.test~log(lassos$lambda,10),type="l", ylim = c(100, 250))
@@ -373,16 +359,17 @@ plot(MSE.lassos.test~log(lassos$lambda,10),type="l", ylim = c(100, 250))
 The MSE in the test plot demonstrates that this shrinkage, in both the Ridge and Lasso regressions, greatly improves the model estimates. Accordingly, the Ridge's best $\lambda$ turns out to be $log_{10}(\lambda) \approx 0.5$ and $\lambda = 3.162278$, which matches the graph's minimum MSE well, from a visual inspection. The corresponding MSE for the best $\lambda$'s Ridge is 109.7959. In a similar plot for the Lasso regression, the optimal $\lambda$ came out as $log_{10}(\lambda) = -1$ so $\lambda = 0.1$. The Lasso also performed better than the Ridge regression, as expected, with an MSE of 107.4165, which is verifiably less than the Ridge's MSE (107.4165 < 109.7959). That means that the Lasso regression model is $\sim 2.2\%$ better than the Ridge regression model in terms of MSE, and we logically know that the $\lambda 's$ cannot be compared due to the difference in calculation methods. This makes sense since our data does appear to have several unimportant predictors mixed in with a few significant ones, as is common in the real world beyond pure statistical problems. It is also crucial to note that the Lasso MSE tops out at 240 while the Ridge MSE does not appear to stop growing beyond our chosen $\lambda$ bounds. For the Lasso, we have already found our optimal $\lambda = 0.01$, but the MSE boundary shows that MSE does not increase when $\lambda > \sim 2.3$.
 
 Looking at the Ridge model's $\beta_j$ trajectory plots, we can see wide variability for many of the predictors, with some shrinking to 0 incredibly quickly while others more gradually or steeply further along the $log(\lambda's)$.
-```{r, echo=F}
-matplot(log(ridges$lambda, 10), t(ridges$beta),type="l")
-```
 
 In the Lasso's version of the test $\beta_j$ trajectory plots, the trajectories are much more enticing. all of the predictors are significant, until they aren't, dropping off sharply after specific lambda values, and almost all of them have shrunk to 0 by the time $\lambda= 0.1$ or shortly thereafter. 
+
 ```{r, echo=F}
-matplot(log(lassos$lambda, 10), t(lassos$beta),type="l")
+par(mfrow=c(1, 2))
+matplot(log(ridges$lambda, 10), t(ridges$beta),type="l", main="Ridge Beta Trajectories")
+matplot(log(lassos$lambda, 10), t(lassos$beta),type="l", main="LASSO Beta Trajectories")
 ```
 
 We can be thankful for this result, albeit expected, since the Lasso regression's ability to shrink coefficients to 0 often makes it more conservative and more interpretable, leading to an easy and efficient modeling choice.  
+
 
 
 \section{LMER Modeling}
