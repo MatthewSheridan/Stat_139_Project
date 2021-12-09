@@ -92,7 +92,7 @@ RMSE <- function(y.obs, y.pred){
 
 The data originally obtained from nflfastR is very granular, with one row for every play in a season. We acquired the play-by-play data for 2017, 2018, 2019, and 2021, skipping 2020 because that was the “COVID season” where game dynamics may have been different without fans in the stadium. The play-by-play level was too granular for our purposes, as it would have led to a sparse design matrix due to the high variability of plays and the low frequency of certain game events such as quarterback hits, touchdowns, and turnovers. In order to explore the relationship between total in-game statistics and score differential, we aggregated the data by team and by game. For example, we would sum the passing yards over all of one team’s plays in a game to get their total passing yards in the game. Aggregating the plays to the game-level allowed us to create a richer data matrix that would provide more interpretable, useful results. We chose a wide range of predictors from the nflfastR dataset, encompassing predictors which we thought would directly relate to score differential such as touchdowns and interceptions as well as variables whose relationship was less intuitively clear such as unique receivers, quarterback hits, and missed extra point attempts. After aggregation and preliminary variable selection our dataset looks as follows:
 
-### Insert dataset head
+`r head(data_2017_19)`
 
 The included predictors are:
 
@@ -216,7 +216,7 @@ gridExtra::grid.arrange(g.pass, g.rush, g.3, g.4, g.qb, nrow=3)
 cor_matrix <- cor(data_2019[4:18])
 cor_matrix[upper.tri(cor_matrix)] <- NA
 cor_matrix <- cor_matrix %>% round(2)
-cor_matrix
+knitr::kable(cor_matrix)
 ```
 
 
@@ -241,7 +241,7 @@ We also ran stepwise variable selection backwards and in both directions, per th
 ```{r}
 #Stepwise Models
 #Stepwise Backward
-step.back = step(baseline.lm, direction = "backward", k = 2, trace = F)
+step.back = step(lm1, direction = "backward", k = 2, trace = F)
 formula(step.back)
 ```
 We can note that this immediately removes TLF and Pen; additionally, this model has a Multiple R-squared = 0.5439, an F-statistic of 135.2 and a p-value < 0.00000000000000022. In the coefficients table in the appendix, we can also see that XP_missed has a p-value > 0.05, indicating overfitting, which does not bode well for the more complex stepwise model. 
@@ -249,7 +249,7 @@ We can note that this immediately removes TLF and Pen; additionally, this model 
 With the both directional stepwise variable selection model starting from the baseline linear model all the way through the model with all interaction effects, we find the following formula:
 ```{r}
 #Stepwise Both
-step.both = step(baseline.lm, scope = c(lower = formula(Score_Dif ~ 1), upper = formula(Score_Dif ~ (. - Game_id - Team_Name)^2)), direction = "both", trace = F)
+step.both = step(lm1, scope = c(lower = formula(Score_Dif ~ 1), upper = formula(Score_Dif ~ (. - Game_id - Team_Name)^2)), direction = "both", trace = F)
 formula(step.both)
 ```
 
@@ -258,18 +258,7 @@ However, although the model appropriately disposes of countless insignificant pr
 
 \textbf{Random Forest}
 
-A random forest was fit using the combined game data from years 2017-2019. One advantage to using a random forest in this case is that it represents a good way to measure the predictive power of the predictors chosen, due to the non-parametric nature of the random forest and lack of assumptions needed to fit the model. After fitting a random forest, we can plot the Variable Importance of the predictors, to see how much predictive power is lost when the predictor is removed from the tree, and the greater the disparity the more important said predictor is. The one disadvantage to this method is that while we are able to tell that a certain predictor is very important, we are unable to interpret whether the relationship between the predictor and the response is positive or negative. For example, we see that QB_hits (the number of hits a team's quarterback takes) is considered important. We may assume, as logic follows, that minimizing the amount of times your quarterback is hit is most beneficial for a large score differential. However, we cannot determine that this is the case from only this plot. 
-
-A random forest was fit over a range of different hyper-parameters. Different values of mtry, ranging from 1 (essentially a random forest) to 12, reflect the number of variables randomly sampled at each split within the random forest, where higher values add more complexity. Secondly is maxnodes, which represents the maximum number of terminal nodes present in the resulting forest. The number of trees within our forest was fixed at 200 to maintain a reasonable run time. After cross-validating the RMSE between predicted and true values among training (2017-2019 data) and testing (2021 data) sets, the lowest test set RMSE was selected, and it was found that the optimal set of hyper parameters from our tests is mtry = 8 and maxnodes = 1000. Looking at the calculated differences in RMSEs on training and testing data, no models appear to be egregiously over-fit. Our selected hyper-parameters do not produce one of the largest magnitude RMSE differences, so it appears that our tuned model is acceptable.
-
-Using the aforementioned hyper-parameters, the model was fit again and a variable importance plot was generated. This plot shows which variables have the most predictive power in the random forest. We can see that the highest predictors in terms of variable importance are Red Zone Plays and rushing yards, which appear to be in a tier of their own. This is followed by another tier that includes shotgun plays, QB hits, interceptions and passing yards. The rest of the predictors are of much lower importance based on this plot. This suggests that these mentioned predictors have the most important relationships with score differential for any given game.
-
-### Var imp plot
-
-It seems obvious that the number of touchdowns a team scores would have a large impact on their score differential. In the broader context of football, it makes sense that red zone plays would be considered highly important for predicting score differential because, considering that the red zone is the area within 20 yards of the opponent's end zone, this is where points are scored, and the more plays that are run in this area the more points should be scored. It also makes logical sense that rushing yards should be almost as important, both because teams that are leading by large amounts tend to run much more in order to possess the ball, and conversely teams that have great success running tend to have more control of the game and time of possession. In terms of the "second tier" predictors, QB_hits makes sense as a solid predictor. Presumably, the fewer hits your quarterback is taking, then the better chance you have of putting up more points than your opponent. The number of interceptions a team gets gives more opportunities to score while having to drive fewer yards down the field than if the ball was obtained otherwise (such as a punt, or a kickoff). The number of passing yards and shotgun plays are slightly less interpretable in terms of their importance. Passing yards could be a positive predictor because a team that amasses lots of passing yardage likely scores many points. However, a team that is behind by a large amount may gain many passing yards towards the end of the game in a meaningless effort to catch up to the winning team (this is referred to as "garbage time" statistics, when the outcome of the game is relatively determined, but play still occurs and players amass stats). Similarly, the number of stats taken out of the shotgun could be the mark of a team being successfully aggressive in their passing game, or that a team is struggling behind and trying to play catch-up. It would be best to investigate the nature of the relationship of these predictors with our chosen response in some sort of other linear model in order to examine the sign and size of the associated coefficient.
-
-
-```{r}
+```{r,echo=F, warning=FALSE}
 
 maxnodes <- c(100, 500, 1000)
 mtry <- c(1,5,8,10,12)
@@ -292,12 +281,19 @@ rf1 <- randomForest(Score_Dif~.-Game_id-Team_Name-year,
                     mtry = combs[which.min(combs$RMSE_test),]$mtry, 
                     maxnodes = combs[which.min(combs$RMSE_test),]$maxnodes, 
                     ntree=200)
-  
-rf1$oob.times
-
-varImpPlot(rf1)
+rf.varimp <- varImpPlot(rf1)
 
 ```
+
+A random forest was fit using the combined game data from years 2017-2019. One advantage to using a random forest in this case is that it represents a good way to measure the predictive power of the predictors chosen, due to the non-parametric nature of the random forest and lack of assumptions needed to fit the model. After fitting a random forest, we can plot the Variable Importance of the predictors, to see how much predictive power is lost when the predictor is removed from the tree, and the greater the disparity the more important said predictor is. The one disadvantage to this method is that while we are able to tell that a certain predictor is very important, we are unable to interpret whether the relationship between the predictor and the response is positive or negative. For example, we see that QB_hits (the number of hits a team's quarterback takes) is considered important. We may assume, as logic follows, that minimizing the amount of times your quarterback is hit is most beneficial for a large score differential. However, we cannot determine that this is the case from only this plot. 
+
+A random forest was fit over a range of different hyper-parameters. Different values of mtry, ranging from 1 (essentially a random forest) to 12, reflect the number of variables randomly sampled at each split within the random forest, where higher values add more complexity. Secondly is maxnodes, which represents the maximum number of terminal nodes present in the resulting forest. The number of trees within our forest was fixed at 200 to maintain a reasonable run time. After cross-validating the RMSE between predicted and true values among training (2017-2019 data) and testing (2021 data) sets, the lowest test set RMSE was selected, and it was found that the optimal set of hyper parameters from our tests is mtry = 8 and maxnodes = 1000. Looking at the calculated differences in RMSEs on training and testing data, no models appear to be egregiously over-fit. Our selected hyper-parameters do not produce one of the largest magnitude RMSE differences, so it appears that our tuned model is acceptable.
+
+Using the aforementioned hyper-parameters, the model was fit again and a variable importance plot was generated. This plot shows which variables have the most predictive power in the random forest. We can see that the highest predictors in terms of variable importance are Red Zone Plays and rushing yards, which appear to be in a tier of their own. This is followed by another tier that includes shotgun plays, QB hits, interceptions and passing yards. The rest of the predictors are of much lower importance based on this plot. This suggests that these mentioned predictors have the most important relationships with score differential for any given game.
+
+`r rf.varimp`
+
+It seems obvious that the number of touchdowns a team scores would have a large impact on their score differential. In the broader context of football, it makes sense that red zone plays would be considered highly important for predicting score differential because, considering that the red zone is the area within 20 yards of the opponent's end zone, this is where points are scored, and the more plays that are run in this area the more points should be scored. It also makes logical sense that rushing yards should be almost as important, both because teams that are leading by large amounts tend to run much more in order to possess the ball, and conversely teams that have great success running tend to have more control of the game and time of possession. In terms of the "second tier" predictors, QB_hits makes sense as a solid predictor. Presumably, the fewer hits your quarterback is taking, then the better chance you have of putting up more points than your opponent. The number of interceptions a team gets gives more opportunities to score while having to drive fewer yards down the field than if the ball was obtained otherwise (such as a punt, or a kickoff). The number of passing yards and shotgun plays are slightly less interpretable in terms of their importance. Passing yards could be a positive predictor because a team that amasses lots of passing yardage likely scores many points. However, a team that is behind by a large amount may gain many passing yards towards the end of the game in a meaningless effort to catch up to the winning team (this is referred to as "garbage time" statistics, when the outcome of the game is relatively determined, but play still occurs and players amass stats). Similarly, the number of stats taken out of the shotgun could be the mark of a team being successfully aggressive in their passing game, or that a team is struggling behind and trying to play catch-up. It would be best to investigate the nature of the relationship of these predictors with our chosen response in some sort of other linear model in order to examine the sign and size of the associated coefficient.
 
 
 A random forest was fit using the combined game data from years 2017-2019. One advantage to using a random forest in this case is that it represents a good way to measure the predictive power of the predictors chosen, due to the non-parametric nature of the random forest and lack of assumptions needed to fit the model. After fitting a random forest with desired predictors, we can plot the Variable Importance of the predictors, to see how much predictive power is lost when the predictor is removed from the tree, and the greater the disparity the more important said predictor is. The one disadvantage to this method is that while we are able to tell that a certain predictor is very important, we are unable to interpret whether the relationship between the predictor and the response is positive or negative. For example, we see that QB_hits (the number of hits a team's quarterback takes) is considered important. We may assume, as logic follows, that minimizing the amount of times your quarterback is hit is most beneficial for a large score differential. However, we cannot determine that this is the case from only this plot. 
