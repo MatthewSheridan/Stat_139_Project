@@ -247,7 +247,7 @@ formula(step.back)
 We can note that this immediately removes TLF and Pen; additionally, this model has a Multiple R-squared = 0.5439, an F-statistic of 135.2 and a p-value < 0.00000000000000022. In the coefficients table in the appendix, we can also see that XP_missed has a p-value > 0.05, indicating overfitting, which does not bode well for the more complex stepwise model. 
 
 With the both directional stepwise variable selection model starting from the baseline linear model all the way through the model with all interaction effects, we find the following formula:
-```{r,echo=F}
+```{r,echo=F, warning=F}
 #Stepwise Both
 step.both = step(lm1, scope = c(lower = formula(Score_Dif ~ 1), upper = formula(Score_Dif ~ (. - Game_id - Team_Name)^2)), direction = "both", trace = F)
 formula(step.both)
@@ -288,8 +288,6 @@ rf1 <- randomForest(Score_Dif~.-Game_id-Team_Name-year,
                     maxnodes = combs[which.min(combs$RMSE_test),]$maxnodes, 
                     ntree=200)
   
-rf1$oob.times
-
 varImpPlot(rf1)
 
 ```
@@ -299,7 +297,7 @@ It seems obvious that the number of touchdowns a team scores would have a large 
 \textbf{Ridge Regression and LASSO}
 
 
-```{r, echo=F, message=F}
+```{r, echo=F, message=F, warning=F, }
 library(glmnet)
 library(Rcpp)
 library(Matrix)
@@ -506,13 +504,13 @@ In the long run, we’d be able to claim that rushing for more yards likely mean
 
 ```{r, echo=F}
 
-ne.game.init = predict(win.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==1,], type="response"); ne.game.init
+ne.game.init = predict(win.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==1,], type="response")
 
-tb.game.init = predict(win.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==0,], type="response"); tb.game.init
+tb.game.init = predict(win.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==0,], type="response")
 
-ne.game.best = predict(best.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==1,], type="response"); ne.game.best
+ne.game.best = predict(best.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==1,], type="response")
 
-tb.game.best = predict(best.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==0,], type="response"); tb.game.best
+tb.game.best = predict(best.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==0,], type="response")
 
 
 data.frame(NE_Chance_Tuned = ne.game.best, NE_Chance_Untuned = ne.game.init, TB_Chance_Tuned = tb.game.best, TB_Chance_Untuned = tb.game.init, row.names = '')
