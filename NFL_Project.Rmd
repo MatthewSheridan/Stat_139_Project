@@ -304,7 +304,7 @@ In the broader context of football, it makes sense that red zone plays would be 
 \textbf{Ridge Regression and LASSO}
 
 
-```{r, echo=F, message=F, warning=F, }
+```{r, echo=F, message=F, warning=F, results='hide', fig.show='hide'}
 library(glmnet)
 library(Rcpp)
 library(Matrix)
@@ -373,6 +373,7 @@ plot(MSE.lassos.test~log(lassos$lambda,10),type="l", ylim = c(100, 250))
 The MSE in the test plot demonstrates that this shrinkage, in both the Ridge and Lasso regressions, greatly improves the model estimates. Accordingly, the Ridge's best $\lambda$ turns out to be $log_{10}(\lambda) \approx 0.5$ and $\lambda = 3.162278$, which matches the graph's minimum MSE well, from a visual inspection. The corresponding MSE for the best $\lambda$'s Ridge is 109.7959. In a similar plot for the Lasso regression, the optimal $\lambda$ came out as $log_{10}(\lambda) = -1$ so $\lambda = 0.1$. The Lasso also performed better than the Ridge regression, as expected, with an MSE of 107.4165, which is verifiably less than the Ridge's MSE (107.4165 < 109.7959). That means that the Lasso regression model is $\sim 2.2\%$ better than the Ridge regression model in terms of MSE, and we logically know that the $\lambda 's$ cannot be compared due to the difference in calculation methods. This makes sense since our data does appear to have several unimportant predictors mixed in with a few significant ones, as is common in the real world beyond pure statistical problems. It is also crucial to note that the Lasso MSE tops out at 240 while the Ridge MSE does not appear to stop growing beyond our chosen $\lambda$ bounds. For the Lasso, we have already found our optimal $\lambda = 0.01$, but the MSE boundary shows that MSE does not increase when $\lambda > \sim 2.3$.
 
 Looking at the Ridge model's $\beta_j$ trajectory plots, we can see wide variability for many of the predictors, with some shrinking to 0 incredibly quickly while others more gradually or steeply further along the $log(\lambda's)$.
+
 ```{r, echo=F}
 matplot(log(ridges$lambda, 10), t(ridges$beta),type="l")
 ```
