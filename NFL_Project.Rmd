@@ -15,7 +15,6 @@ The National Football League (NFL) was slower to adopt sabermetrics, but the ris
 
 Our data comes from the nflfastR package, which contains accumulated play-by-play data from 1999 through 2021, with additional predictors beginning in 2006. We hope to create a parsimonious, streamlined model capable of predicting the score differential of an NFL game within some reasonable confidence interval. While prediction is a outcome and measure of success for any model, we also hope to use inference from our models. While we will have some variables with relatively clear-cut relationships with score differential, our analysis will also focus on how more “strategic” variables relate to success. More turnovers in a game and more total yards should correlate strongly with score differential, but we are interested in variables that have a more unclear relationship with the final outcome. Are missed extra point attempts indicative of the team as a whole having a bad day? What about third down conversion rate? And quarterback hits? These are the kinds of interactions and trends we hope to expose in our model. By using metrics that are not generally used to predict game outcomes, we hope to find insight into predicting wins that are not conventionally expected.
 
-
 \section{Data Cleaning, EDA}
 
 ```{r, results='hide', echo=F, eval=F,warning=F}
@@ -228,27 +227,25 @@ It seems obvious that the number of touchdowns a team scores would have large im
 \section{LMER Modeling}
 
 ```{r, eval=T}
-data_2017_19_scale <- data_2017_19
-data_2017_19_scale[,6:7] <- data_2017_19_scale[,6:7] %>% sapply(scale, scale=F)
-
-
-lmer_all <- lmer(Score_Dif ~. -Game_id -Team_Name -year + (1|Team_Name),data=data_2017_19)
+lmer_all <- lmer(Score_Dif ~ Home +TFL + QB_Hit + Pass_Yrd + Rush_Yrd + FG_attempt + 
+    XP_missed + FG_missed + FUM + INT + Fourth_Dwn_Con + Third_Dwn_Con + Pen + 
+    RedZone_Plays + Unique_Receivers + Shotgun_Plays + (1|Team_Name),data=data_2017_19)
 
 lmer_step <- lmer(Score_Dif ~ Home + QB_Hit + Pass_Yrd + Rush_Yrd + FG_attempt + 
     XP_missed + FG_missed + FUM + INT + Fourth_Dwn_Con + Third_Dwn_Con + 
-    RedZone_Plays + Unique_Receivers + Shotgun_Plays + (1|Team_Name), 
-    data=data_2017_19_scale)
+    RedZone_Plays + Unique_Receivers + Shotgun_Plays + (1|Team_Name),
+    data=data_2017_19)
 
 lmer_step_slope <- lmer(Score_Dif ~ Home + QB_Hit + Pass_Yrd + Rush_Yrd + FG_attempt + 
     XP_missed + FG_missed + FUM + INT + Fourth_Dwn_Con + Third_Dwn_Con + 
-    RedZone_Plays + Unique_Receivers + Shotgun_Plays + (1|Team_Name), 
-    data=data_2017_19_scale)
-
-AIC(lmer_all, lmer_step, lmer_step_slope, lm1)
+    RedZone_Plays + Unique_Receivers + Shotgun_Plays + (1+Rush_Yrd|Team_Name), 
+    data=data_2017_19)
 ```
 Next, we fit a Linear Mixed-Effects model with random intercepts by team to see if that had any impact on our predictions. Given that observations can be grouped by team and there are 32 teams, a mixed-effects model was a natural next step in our modeling approach. We fit two different types of mixed-effects models: one with all available predictors, and one with the predictors chosen by sequential variable selection. We found that the inclusion of a random intercept did not improve prediction substantially, with the random intercept term only accounting for $\approx 9$% of the total variance in the model. Most coefficient estimates were very similar to the standard OLS run previously. Some of this may be due to the fact that there are a relatively large number of observations per team. Although there are $32$ teams, each team has $48$ - $60$ "measurements" or games in the dataset and thus the benefit of linear mixed-effects modeling in shrinking outlier intercepts towards the mean is less pronounced. 
 
-Nonetheless, a random intercept model with only the predictors returned by the stepwise variable selection process as outlined previously did increase the impact of the random intercept and decreased the AIC. We also fit a linear mixed-effects model with a random intercept by team and random slope for the relationship of total rushing yards with final score differential. In theory, if some teams were primarily a "passing" team, total rushing yards might have less of an outcome on final score differential than if their primary game strategy relied on the run. However, we find that this random slope model actually worsens the model AIC suggesting that this is not a particularly important trend to model.
+Nonetheless, a random intercept model with only the predictors returned by the stepwise variable selection process as outlined previously decreased the AIC and maintained the impact of the random intercept. Notably, the coefficients in the linear mixed-effects model did not change substantially from the ordinary least squares model with the same predictors. While most of the coefficients were slightly closer to zero in the linear mixed-effects model, the $t$ statistics (i.e. level of significance of the coefficients) generally stayed the same as the addition of the random intercept helped decrease the variability in the model.
+
+We also fit a linear mixed-effects model with a random intercept by team and random slope for the relationship of total rushing yards with final score differential. In theory, if some teams were primarily a "passing" team, total rushing yards might have less of an outcome on final score differential than if their primary game strategy relied on the run. However, we find that this random slope model actually worsens the model AIC suggesting that this is not a particularly important trend.
 
 The fitted values vs residuals plot and Normal Q-Q plots are both reasonable for this random-intercept mixed-effects model, demonstrating that constant variance and normality of residuals are acceptable assumptions for this model. However, there is some concern with the distribution of fitted random intercept estimates--the histogram is neither normal-shaped or symmetric. This could potentially be fixed with \textbf{Blank but it is probably not an issue at the end of the day}.
 ```{r, eval=T}
@@ -305,15 +302,28 @@ lassos$lambda[which.min(MSE.lassos.test)]
 min(MSE.lassos.test)
 matplot(log(lassos$lambda, 10), t(lassos$beta),type="l")
 
-
 #Stepwise Models
 #Stepwise Backward
 step.back = step(lm1, direction = "backward", k = 2, trace = F)
 formula(step.back)
 
 #Stepwise Both
-step.both = step(step.back, scope = c(lower = Score_Dif ~ . - Game_id - Team_Name, upper = formula(Score_Dif ~ (. - Game_id - Team_Name))), direction = "both", trace = F)
-formula(step.both)
+step.both = step(step.back, 
+                 scope = c(lower = Score_Dif ~ . - Game_id - Team_Name -year, upper = formula(Score_Dif ~ (. - Game_id - Team_Name))), 
+                 direction = "both", trace = F)
+step.both.int = step(step.back, 
+                 scope = c(lower = Score_Dif ~ . - Game_id - Team_Name -year, upper = formula(Score_Dif ~ (. - Game_id - Team_Name)^2)), 
+                 direction = "both", trace = F)
+```
+
+```{r}
+list.models <- list(lmer_all, lmer_step, lmer_step_slope, lm1, step.both, step.both.int)
+model.results <- data.frame(unlist(lapply(list.models, AIC)),
+                            unlist(lapply(list.models, BIC)),
+                            unlist(lapply(list.models, predict, newdata=data_2017_19) %>% lapply(RMSE, data_2017_19$Score_Dif)),
+                            unlist(lapply(list.models, predict, newdata=data_2021) %>% lapply(RMSE, data_2021$Score_Dif)))
+names(model.results) <- c("AIC", "BIC", "RMSE.Train", "RMSE.Test")
+rownames(model.results) <- c("lmer", "lmer.stepwise", "lmer.stepwise.slope", "lm.all", "lm.step", "lm.step.interaction")
 ```
 
 
