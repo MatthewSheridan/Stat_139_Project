@@ -32,6 +32,7 @@ library(gridExtra)
 library(randomForest)
 library(lme4)
 library(xfun)
+library(lubridate)
 options(scipen = 9999)
 ```
 
@@ -90,65 +91,6 @@ RMSE <- function(y.obs, y.pred){
   return(sqrt(mean((y.obs-y.pred)^2)))
 }
 ```
-
-
-The data originally obtained from nflfastR is very granular, with one row for every play in a season. We acquired the play-by-play data for 2017, 2018, 2019, and 2021, skipping 2020 because that was the “COVID season” where game dynamics may have been different without fans in the stadium. The play-by-play level was too granular for our purposes, as it would have led to a sparse design matrix due to the high variability of plays and the low frequency of certain game events such as quarterback hits, touchdowns, and turnovers. In order to explore the relationship between total in-game statistics and score differential, we aggregated the data by team and by game. For example, we would sum the passing yards over all of one team’s plays in a game to get their total passing yards in the game. Aggregating the plays to the game-level allowed us to create a richer data matrix that would provide more interpretable, useful results. We chose a wide range of predictors from the nflfastR dataset, encompassing predictors which we thought would directly relate to score differential such as touchdowns and interceptions as well as variables whose relationship was less intuitively clear such as unique receivers, quarterback hits, and missed extra point attempts. After aggregation and preliminary variable selection our dataset looks as follows:
-
-`r head(data_2017_19)`
-
-The included predictors are:
-
-\footnotesize
-
-**Game_id**: ID to distinguish games.
-
-**Team_Name**: What team are statistics being recorded for
-
-**Home**: dummy variable, 1 if the given team was at home for the game and 0 if they were away. 
-
-**TFL**: the number of offensive plays from a team that are Tacked For a Loss (i.e. tackles behind the line of scrimmage) in a game.
-
-**QB_hit**: the number of hits on a given team’s quarterback in a game.
-
-**Pass_Yrd**: Total game passing yards from a given team.
-
-**Rush_Yrd**: Total game rushing yards from a given team.
-
-**FG_Attempt**: Total field goal attempts in a game by a given team.
-
-**XP_missed**: Total missed extra-point attempts in a game
-
-**FG_missed**: Total missed field-goal attempts in a game
-
-**FUM**: Total team fumbles.
-
-**INT**: Total team interceptions.
-
-**Fourth_Dwn_Con**: Total fourth-down conversions. 
-
-**Third_Dwn_Con**: Total third-down conversions
-
-**Pen**: Total penalties committed by a given team 
-
-**RedZone_Plays**: Total number of plays run within the 20 yard line for a given team.
-
-**Unique_Receivers**: Number of different receivers that caught a ball for a team in a game.
-
-**Shotgun_Plays**: Number of plays run out of the shotgun formation for a team.
-
-**Half1_RunPass_Ratio**: Runs/Passes in the first half for a team.
-
-**Third_and_Longs**: Third downs converted from over 5 yards away for a team.
-
-**Half1_AirYrds**: Total air yards (ball travels in air to meet receiver) in the first half.
-
-**Score_Dif**: Score Differential (positive means win negative means lose).
-
-Below, we plotted the distributions for a number of different potential predictors, as well as their relationship with the response variable of interest. Most predictors are slightly right-skewed, as they have a positive support and have a slight "bell" shape for the most common values but are stretched out by the few exceptional games where a team throws for 500 yards or rushes for 250 yards. However, it is mild right-skewness as it is not to the extent that log-transforming them would make the distributions more symmetric. For example, if we log-transform `Pass_Yrd` we actually find that the resulting distribution is left-skewed, suggesting that the log transformation was actually too strong! While we found that a square root transformation would make the `Pass_Yrd` and `Rush_Yrd` distributions more symmetric, it would also make interpretations much less intuitive. Since the primary goal of this project is interpretation-focused and the relationship between offensive yards and score differential is still relatively linear (and the distributions of predictors still relatively normal despite very slight skew), we elected to not do any transformations here.
-
-Furthermore, we can do a preliminary investigation of the relationships between some of the predictors and the outcome variable of score differential in 2019. Notably, we can see that the number of fumbles caused by a team is positively associated with score differential and that it is a relatively linear trend. The number of third down conversions is also positively associated with score differential, but this seems more complicated than a "simple" linear trend. Teams with a very large number (> 8) of third down conversions in a game appear to have a more negative score differential than teams with 5-7 third down conversions. This suggests that in future models investigating the effects of quadratic or higher order polynomial terms could be reasonable.
-
-Below is a correlation table examining all of the predictors we have in our aggregated dataset. Notably, no predictors have a correlation close to 1 or -1 which would indicate collinearity and cause problems with our model. The largest correlations appear between `TD` and `Pass_Yrd`, `TD` and `Rush_Yrd`, and `FG` and `FG_missed`, with most other correlations < |0.15|. 
 
 ```{r, echo=F, message=F}
 #DO EDA HERE
@@ -212,6 +154,68 @@ g.qb <- ggplot(data_2019, aes(x=QB_Hit)) +
 gridExtra::grid.arrange(g.fum_sc, g.3_sc)
 gridExtra::grid.arrange(g.pass, g.rush, g.3, g.4, g.qb, nrow=3)
 ```
+
+
+The data originally obtained from nflfastR is very granular, with one row for every play in a season. We acquired the play-by-play data for 2017, 2018, 2019, and 2021, skipping 2020 because that was the “COVID season” where game dynamics may have been different without fans in the stadium. The play-by-play level was too granular for our purposes, as it would have led to a sparse design matrix due to the high variability of plays and the low frequency of certain game events such as quarterback hits, touchdowns, and turnovers. In order to explore the relationship between total in-game statistics and score differential, we aggregated the data by team and by game. For example, we would sum the passing yards over all of one team’s plays in a game to get their total passing yards in the game. Aggregating the plays to the game-level allowed us to create a richer data matrix that would provide more interpretable, useful results. We chose a wide range of predictors from the nflfastR dataset, encompassing predictors which we thought would directly relate to score differential such as touchdowns and interceptions as well as variables whose relationship was less intuitively clear such as unique receivers, quarterback hits, and missed extra point attempts. After aggregation and preliminary variable selection our dataset looks as follows:
+
+
+```{r, echo=F}
+head(data_2017_19)
+```
+
+The included predictors are:
+
+\footnotesize
+
+**Game_id**: ID to distinguish games.
+
+**Team_Name**: What team are statistics being recorded for
+
+**Home**: dummy variable, 1 if the given team was at home for the game and 0 if they were away. 
+
+**TFL**: the number of offensive plays from a team that are Tacked For a Loss (i.e. tackles behind the line of scrimmage) in a game.
+
+**QB_hit**: the number of hits on a given team’s quarterback in a game.
+
+**Pass_Yrd**: Total game passing yards from a given team.
+
+**Rush_Yrd**: Total game rushing yards from a given team.
+
+**FG_Attempt**: Total field goal attempts in a game by a given team.
+
+**XP_missed**: Total missed extra-point attempts in a game
+
+**FG_missed**: Total missed field-goal attempts in a game
+
+**FUM**: Total team fumbles.
+
+**INT**: Total team interceptions.
+
+**Fourth_Dwn_Con**: Total fourth-down conversions. 
+
+**Third_Dwn_Con**: Total third-down conversions
+
+**Pen**: Total penalties committed by a given team 
+
+**RedZone_Plays**: Total number of plays run within the 20 yard line for a given team.
+
+**Unique_Receivers**: Number of different receivers that caught a ball for a team in a game.
+
+**Shotgun_Plays**: Number of plays run out of the shotgun formation for a team.
+
+**Half1_RunPass_Ratio**: Runs/Passes in the first half for a team.
+
+**Third_and_Longs**: Third downs converted from over 5 yards away for a team.
+
+**Half1_AirYrds**: Total air yards (ball travels in air to meet receiver) in the first half.
+
+**Score_Dif**: Score Differential (positive means win negative means lose).
+
+Below, we plotted the distributions for a number of different potential predictors, as well as their relationship with the response variable of interest. Most predictors are slightly right-skewed, as they have a positive support and have a slight "bell" shape for the most common values but are stretched out by the few exceptional games where a team throws for 500 yards or rushes for 250 yards. However, it is mild right-skewness as it is not to the extent that log-transforming them would make the distributions more symmetric. For example, if we log-transform `Pass_Yrd` we actually find that the resulting distribution is left-skewed, suggesting that the log transformation was actually too strong! While we found that a square root transformation would make the `Pass_Yrd` and `Rush_Yrd` distributions more symmetric, it would also make interpretations much less intuitive. Since the primary goal of this project is interpretation-focused and the relationship between offensive yards and score differential is still relatively linear (and the distributions of predictors still relatively normal despite very slight skew), we elected to not do any transformations here.
+
+Furthermore, we can do a preliminary investigation of the relationships between some of the predictors and the outcome variable of score differential in 2019. Notably, we can see that the number of fumbles caused by a team is positively associated with score differential and that it is a relatively linear trend. The number of third down conversions is also positively associated with score differential, but this seems more complicated than a "simple" linear trend. Teams with a very large number (> 8) of third down conversions in a game appear to have a more negative score differential than teams with 5-7 third down conversions. This suggests that in future models investigating the effects of quadratic or higher order polynomial terms could be reasonable.
+
+Below is a correlation table examining all of the predictors we have in our aggregated dataset. Notably, no predictors have a correlation close to 1 or -1 which would indicate collinearity and cause problems with our model. The largest correlations appear between `TD` and `Pass_Yrd`, `TD` and `Rush_Yrd`, and `FG` and `FG_missed`, with most other correlations < |0.15|. 
 
 
 ```{r, echo =F, warning=F}
@@ -290,7 +294,10 @@ A random forest was fit over a range of different hyper-parameters. Different va
 
 Using the aforementioned hyper-parameters, the model was fit again and a variable importance plot was generated. This plot shows which variables have the most predictive power in the random forest. We can see that the highest predictors in terms of variable importance are Red Zone Plays and rushing yards, which appear to be in a tier of their own. This is followed by another tier that includes shotgun plays, QB hits, interceptions and passing yards. The rest of the predictors are of much lower importance based on this plot. This suggests that these mentioned predictors have the most important relationships with score differential for any given game.
 
-`r rf.varimp`
+
+```{r, echo=F}
+rf.varimp
+```
 
 In the broader context of football, it makes sense that red zone plays would be considered highly important for predicting score differential because, considering that the red zone is the area within 20 yards of the opponent's end zone, this is where points are scored, and the more plays that are run in this area the more points should be scored. It also makes logical sense that rushing yards should be almost as important, both because teams that are leading by large amounts tend to run much more in order to possess the ball, and conversely teams that have great success running tend to have more control of the game and time of possession. In terms of the "second tier" predictors, QB_hits makes sense as a solid predictor. Presumably, the fewer hits your quarterback is taking, then the better chance you have of putting up more points than your opponent. The number of interceptions a team gets gives more opportunities to score while having to drive fewer yards down the field than if the ball was obtained otherwise (such as a punt, or a kickoff). The number of passing yards and shotgun plays are slightly less interpretable in terms of their importance. Passing yards could be a positive predictor because a team that amasses lots of passing yardage likely scores many points. However, a team that is behind by a large amount may gain many passing yards towards the end of the game in a meaningless effort to catch up to the winning team (this is referred to as "garbage time" statistics, when the outcome of the game is relatively determined, but play still occurs and players amass stats). Similarly, the number of stats taken out of the shotgun could be the mark of a team being successfully aggressive in their passing game, or that a team is struggling behind and trying to play catch-up. It would be best to investigate the nature of the relationship of these predictors with our chosen response in some sort of other linear model in order to examine the sign and size of the associated coefficient.
 
@@ -380,7 +387,7 @@ We can be thankful for this result, albeit expected, since the Lasso regression'
 
 \section{LMER Modeling}
 
-```{r, eval=T, echo=F}
+```{r, eval=T, echo=F, warning=F}
 lmer_all <- lmer(Score_Dif ~ Home +TFL + QB_Hit + Pass_Yrd + Rush_Yrd + FG_attempt + 
     XP_missed + FG_missed + FUM + INT + Fourth_Dwn_Con + Third_Dwn_Con + Pen + 
     RedZone_Plays + Unique_Receivers + Shotgun_Plays + (1|Team_Name),data=data_2017_19)
@@ -399,9 +406,20 @@ Next, we fit a Linear Mixed-Effects model with random intercepts by team to see 
 
 Nonetheless, a random intercept model with only the predictors returned by the stepwise variable selection process as outlined previously decreased the AIC and maintained the impact of the random intercept. Notably, the coefficients in the linear mixed-effects model did not change substantially from the ordinary least squares model with the same predictors. While most of the coefficients were slightly closer to zero in the linear mixed-effects model, the $t$ statistics (i.e. level of significance of the coefficients) generally stayed the same as the addition of the random intercept helped decrease the variability in the model.
 
+```{r}
+df <- data.frame(lm_coefficients=summary(step.both)$coefficients[,1],
+                 lmer_coefficients=summary(lmer_step)$coefficients[,1])
+df$difference <- df$lm_coefficients - df$lmer_coefficients
+df <- sapply(df, signif, 3)
+rownames(df) <- rownames(summary(step.both)$coefficients)
+knitr::kable(df)
+```
+
+
 We also fit a linear mixed-effects model with a random intercept by team and random slope for the relationship of total rushing yards with final score differential. In theory, if some teams were primarily a "passing" team, total rushing yards might have less of an outcome on final score differential than if their primary game strategy relied on the run. However, we find that this random slope model actually worsens the model AIC suggesting that this is not a particularly important trend.
 
-The fitted values vs residuals plot and Normal Q-Q plots are both reasonable for this random-intercept mixed-effects model, demonstrating that constant variance and normality of residuals are acceptable assumptions for this model. However, there is some concern with the distribution of fitted random intercept estimates--the histogram is neither normal-shaped or symmetric. This could potentially be fixed with \textbf{Blank but it is probably not an issue at the end of the day}.
+The fitted values vs residuals plot and Normal Q-Q plots are both reasonable for this random-intercept mixed-effects model, demonstrating that constant variance and normality of residuals are acceptable assumptions for this model. However, there is some concern with the distribution of fitted random intercept estimates--the histogram is neither normal-shaped or symmetric. 
+
 ```{r, eval=T, echo=F}
 par(mfrow=c(2, 2))
 plot(resid(lmer_all)~predict(lmer_all), main="Fitted Values vs Residuals", xlab="Predicted", ylab="Resid")
@@ -412,8 +430,6 @@ qqline(resid(lmer_all))
 #check normality of random effects - non-normal
 hist(coef(lmer_all)$Team_Name[,1], main="Histogram of Random Intercept Estimates")
 ```
-
-\section{Ridge, Lasso, and Stepwise Regression}
 
 
 ```{r, echo=F}
@@ -438,8 +454,6 @@ rmse.models <- rbind(model.results[,c(3, 4)], model.rmse)
 rownames(rmse.models) <- c("lmer", "lmer_stepwise", "lmer_stepwise_rslope", "lm.all", "lm.step", "lm.step.interaction", "Ridge", "Lasso", "Random Forest")
 knitr::kable(rmse.models)
 
-
-t(model.results)
 knitr::kable(model.results[,1:2])
 ```
 
@@ -503,16 +517,6 @@ Importantly, the model did actually get that prediction correct, but odd scenari
 In the long run, we’d be able to claim that rushing for more yards likely means you are winning and don’t have to pass, which points to there being a win, but a team could just rush for every play and rack up the yards and still lose, which is why we cannot say that rushing yards increase your chances of winning, but rather we associate higher amounts of rushing yards with a higher chance of winning. 
 
 ```{r, echo=F}
-
-ne.game.init = predict(win.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==1,], type="response"); ne.game.init
-
-tb.game.init = predict(win.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==0,], type="response"); tb.game.init
-
-ne.game.best = predict(best.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==1,], type="response"); ne.game.best
-
-tb.game.best = predict(best.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==0,], type="response"); tb.game.best
-
-
 data.frame(NE_Chance_Tuned = ne.game.best, NE_Chance_Untuned = ne.game.init, TB_Chance_Tuned = tb.game.best, TB_Chance_Untuned = tb.game.init, row.names = '')
 
 ```
@@ -527,9 +531,7 @@ A random forest was fitted using these new predictors. It was run before log-tra
 
 ```{r, warning=FALSE, echo=F}
 
-################ FIRST HALF PREDICTORS EXTENSION ################ 
-
-library(lubridate)
+################ FIRST HALF PREDICTORS EXTENSION ################
 
 temp.df <- c()
 for(i in c("17","18","19")) {
