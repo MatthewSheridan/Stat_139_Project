@@ -7,7 +7,7 @@ fig_height: 3
 ---
 
 \section{Introduction}
-Introduction
+
 Sports games are designed around the idea of finding the team that plays the "best" over a given period of time. Professional baseball teams have nine innings, soccer teams ninety minutes, and American football, hockey, and basketball clubs have sixty minutes to score more points than their opponents. While officiating, weather, and "luck" inevitably play a role in deciding the outcome, the end result of a game should hopefully be evident by in-game statistics. Bill James' arguably invented the field of sports analytics in 1977 with his first edition of Baseball Abstract, attempting to analyze past player performance and predict future team success based on quantitative measurements rather than qualitative scouting reports. This quantitative view of player and team statistics, now known as "sabermetrics", exploded in baseball where it is very easy to generate a large number of individual statistics for every player. 
 
 The National Football League (NFL) was slower to adopt sabermetrics, but the rise of remote sensing software in recent years has made it much easier for players and individuals to acquire quantitative game statistics. Football presents an interesting area of analysis since it is naturally discretized into distinct plays which can be measured quantitatively. How many net yards were gained? Was it a run or a rush play? Was it a missed field goal attempt, and if so from how many yards? Motivated to explore these questions, in this project we sought to explore the relationship between NFL in-game statistics and the final score differential. 
@@ -15,7 +15,9 @@ The National Football League (NFL) was slower to adopt sabermetrics, but the ris
 R is a natural environment in which to analyze this as it contains the nflfastR package, which contains accumulated play-by-play data from 1999 through 2021, with additional predictors beginning in 2006. We hope to create a parsimonious, streamlined model capable of predicting the score differential of an NFL game. While we will have some variables with relatively clear-cut relationships with score differential, our analysis will also focus on how more “strategic” variables relate to success. More turnovers in a game and more total yards should correlate strongly with score differential, but we are also interested in variables that have a more unclear relationship with the final outcome. Are missed extra point attempts indicative of the team as a whole having a bad day? What about third down conversion rate? And quarterback hits? Is it better if a quarterback is able to spread his passes to different receivers, or when one receiver dominates the game? These are the kinds of interactions and trends we hope to expose in our model. By using metrics that are not generally used to predict game outcomes, we hope to find insight into predicting wins that are not conventionally expected.
 
 In our project, we hope to answer the following questions:
+
 How do in-game statistics relate to the final score differential of a game? Which predictors are most significantly associated with score differential? What about predictors that aren’t classically associated with offense?
+
 Do some predictors have a different impact as the game progresses? For instance, the first half might be more indicative of team strategy and the second half of the current score in the game. 
 
 \section{Data Cleaning, EDA}
@@ -140,7 +142,7 @@ The included predictors are:
 
 **Half1_AirYrds**: Total air yards (ball travels in air to meet receiver) in the first half.
 
-**Score_Dif**: month: 1 = January, 2 = February, etc.
+**Score_Dif**: Score Differential (positive means win negative means lose).
 
 Below, we plotted the distributions for a number of different potential predictors, as well as their relationship with the response variable of interest. Most predictors are slightly right-skewed, as they have a positive support and have a slight "bell" shape for the most common values but are stretched out by the few exceptional games where a team throws for 500 yards or rushes for 250 yards. However, it is mild right-skewness as it is not to the extent that log-transforming them would make the distributions more symmetric. For example, if we log-transform `Pass_Yrd` we actually find that the resulting distribution is left-skewed, suggesting that the log transformation was actually too strong! While we found that a square root transformation would make the `Pass_Yrd` and `Rush_Yrd` distributions more symmetric, it would also make interpretations much less intuitive. Since the primary goal of this project is interpretation-focused and the relationship between offensive yards and score differential is still relatively linear (and the distributions of predictors still relatively normal despite very slight skew), we elected to not do any transformations here.
 
@@ -212,7 +214,7 @@ gridExtra::grid.arrange(g.pass, g.rush, g.3, g.4, g.qb, nrow=3)
 ```
 
 
-```{r}
+```{r, echo =F, warning=F}
 cor_matrix <- cor(data_2019[4:18])
 cor_matrix[upper.tri(cor_matrix)] <- NA
 cor_matrix <- cor_matrix %>% round(2)
@@ -226,8 +228,6 @@ Our baseline model includes all available predictors to get a sense for the rela
 
 As discussed previously in our EDA, the assumptions of linear regression do generally hold for our data. The baseline model includes predicting score differential from the main effects of all available predictors. The distribution of each of the individual predictors is found to be relatively unskewed (without need for transformations). There also is a shown linear relationship between our predictor variables and score differential. There is no clear fanning (constant variance holds). Lastly, there is likely some dependence among the data (i.e., a team that has many quarterback hits is more likely to have more interceptions), but these should not greatly affect our models.
 
- The code for initializing the models has been hidden for space constraints. The linear model was using all predictors, the stepwise model stepped from an intercept only model to all predictors, and the randomforest has not been tuned (YET) and uses all predictors, as well as the default parameters. We can see that the RMSE's are pretty close together for all the models, but the stepwise linear model seems to outperform all.
-
 ```{r, warning=F, echo=F}
 lm1 = lm(Score_Dif~. -Team_Name -year, data=data_2017_19[,seq(2, ncol(data_2017_19))])
 ```
@@ -238,18 +238,18 @@ lm1 = lm(Score_Dif~. -Team_Name -year, data=data_2017_19[,seq(2, ncol(data_2017_
 \textbf{Stepwise Models}
 
 We also ran stepwise variable selection backwards and in both directions, per the basis of our modeling project. We have seen firsthand how often forward selection leaves out significant predictors, and since one of our primary aims is to find less-well-known predictors, we believed the forward selection method to be too risky since it messes with the fundamental goal of our project. Forward selection also handicaps the AIC analysis, giving us further reason to avoid it for better inferential, predictive, and reasonable models. Our preliminary stepwise variable selection with simple predictors from a baseline linear model yielded a linear model with the following formula:
-```{r}
+```{r,echo=F}
 #Stepwise Models
 #Stepwise Backward
-step.back = step(baseline.lm, direction = "backward", k = 2, trace = F)
+step.back = step(lm1, direction = "backward", k = 2, trace = F)
 formula(step.back)
 ```
 We can note that this immediately removes TLF and Pen; additionally, this model has a Multiple R-squared = 0.5439, an F-statistic of 135.2 and a p-value < 0.00000000000000022. In the coefficients table in the appendix, we can also see that XP_missed has a p-value > 0.05, indicating overfitting, which does not bode well for the more complex stepwise model. 
 
 With the both directional stepwise variable selection model starting from the baseline linear model all the way through the model with all interaction effects, we find the following formula:
-```{r}
+```{r,echo=F}
 #Stepwise Both
-step.both = step(baseline.lm, scope = c(lower = formula(Score_Dif ~ 1), upper = formula(Score_Dif ~ (. - Game_id - Team_Name)^2)), direction = "both", trace = F)
+step.both = step(lm1, scope = c(lower = formula(Score_Dif ~ 1), upper = formula(Score_Dif ~ (. - Game_id - Team_Name)^2)), direction = "both", trace = F)
 formula(step.both)
 ```
 
@@ -264,12 +264,7 @@ A random forest was fit over a range of different hyper-parameters. Different va
 
 Using the aforementioned hyper-parameters, the model was fit again and a variable importance plot was generated. This plot shows which variables have the most predictive power in the random forest. We can see that the highest predictors in terms of variable importance are Red Zone Plays and rushing yards, which appear to be in a tier of their own. This is followed by another tier that includes shotgun plays, QB hits, interceptions and passing yards. The rest of the predictors are of much lower importance based on this plot. This suggests that these mentioned predictors have the most important relationships with score differential for any given game.
 
-### Var imp plot
-
-It seems obvious that the number of touchdowns a team scores would have a large impact on their score differential. In the broader context of football, it makes sense that red zone plays would be considered highly important for predicting score differential because, considering that the red zone is the area within 20 yards of the opponent's end zone, this is where points are scored, and the more plays that are run in this area the more points should be scored. It also makes logical sense that rushing yards should be almost as important, both because teams that are leading by large amounts tend to run much more in order to possess the ball, and conversely teams that have great success running tend to have more control of the game and time of possession. In terms of the "second tier" predictors, QB_hits makes sense as a solid predictor. Presumably, the fewer hits your quarterback is taking, then the better chance you have of putting up more points than your opponent. The number of interceptions a team gets gives more opportunities to score while having to drive fewer yards down the field than if the ball was obtained otherwise (such as a punt, or a kickoff). The number of passing yards and shotgun plays are slightly less interpretable in terms of their importance. Passing yards could be a positive predictor because a team that amasses lots of passing yardage likely scores many points. However, a team that is behind by a large amount may gain many passing yards towards the end of the game in a meaningless effort to catch up to the winning team (this is referred to as "garbage time" statistics, when the outcome of the game is relatively determined, but play still occurs and players amass stats). Similarly, the number of stats taken out of the shotgun could be the mark of a team being successfully aggressive in their passing game, or that a team is struggling behind and trying to play catch-up. It would be best to investigate the nature of the relationship of these predictors with our chosen response in some sort of other linear model in order to examine the sign and size of the associated coefficient.
-
-
-```{r}
+```{r, echo=F, warning=F}
 
 maxnodes <- c(100, 500, 1000)
 mtry <- c(1,5,8,10,12)
@@ -299,19 +294,12 @@ varImpPlot(rf1)
 
 ```
 
-
-A random forest was fit using the combined game data from years 2017-2019. One advantage to using a random forest in this case is that it represents a good way to measure the predictive power of the predictors chosen, due to the non-parametric nature of the random forest and lack of assumptions needed to fit the model. After fitting a random forest with desired predictors, we can plot the Variable Importance of the predictors, to see how much predictive power is lost when the predictor is removed from the tree, and the greater the disparity the more important said predictor is. The one disadvantage to this method is that while we are able to tell that a certain predictor is very important, we are unable to interpret whether the relationship between the predictor and the response is positive or negative. For example, we see that QB_hits (the number of hits a team's quarterback takes) is considered important. We may assume, as logic follows, that minimizing the amount of times your quarterback is hit is most beneficial for a large score differential. However, we cannot determine that this is the case from only this plot. 
-
-A random forest was fit over a range of different hyper-parameters. Different values of mtry, ranging from 1 (essentially a random forest) to 12, reflect the number of variables randomly sampled at each split within the random forest, where higher values add more complexity. Secondly is maxnodes, which represents the maximum number of terminal nodes present in the resulting forest. The number of trees within our forest was fixed at 200 to maintain a reasonable run time. After cross-validating the RMSE between predicted and true values among training (2017-2019 data) and testing (2021 data) sets, the lowest test set RMSE was selected, and it was found that the optimal set of hyper parameters from our tests is mtry = 8 and maxnodes = 1000. Looking at the calculated differences in RMSEs on training and testing data, no models appear to be egregiously over-fit. Our selected hyper-parameters do not produce one of the largest magnitude RMSE differences, so it appears that our tuned model is acceptable.
-
-Using the aforementioned hyper-parameters, the model was fit again and a variable importance plot was generated. This plot shows which variables have the most predictive power in the random forest. We can see that the highest predictors in terms of variable importance are Red Zone Plays and rushing yards, which appear to be in a tier of their own. This is followed by another tier that includes shotgun plays, QB hits, interceptions and passing yards. The rest of the predictors are of much lower importance based off of this plot. This suggests that these mentioned predictors have the most important relationships with score differential for any given game.
-
-It seems obvious that the number of touchdowns a team scores would have large impact on their score differential. In the broader context of football, it makes sense that red zone plays would be considered highly important for predicting score differential because, considering that the red zone is the area within 20 yards of the opponent's end zone, this is where points are scored, and the more plays that are run in this area the more points should be scored. It also makes logical sense that rushing yards should be almost as important, both because teams that are leading by large amounts tend to run much more in order to posses the ball, and conversely teams that have great success running tend to have more control of the game and time of possession. In terms of the "second tier" predictors, QB_hits makes sense as a solid predictor. Presumably, the fewer hits your quarterback is taking, then the better chance you have of putting up more points than your opponent. The number of interceptions a team gets gives more opportunities to score while having to drive fewer yards down the field than if the ball was obtained otherwise (such as a punt, or a kickoff). The number of passing yards and shotgun plays are slightly less interpretable in terms of their importance. Passing yards could be a positive predictor because a team that amasses lots of passing yardage likely scores many points. However, a team that is behind by a large amount may gain many passing yards towards the end of the game in a meaningless effort to catch up to the winning team (this is referred to as "garbage time" statistics, when the outcome of the game is relatively determined, but play still occurs and players amass stats). Similarly, the number of stats taken out of the shotgun could be the mark of a team being successfully aggressive in their passing game, or that a team is struggling behind and trying to play catch-up. It would be best to investigate the nature of the relationship of these predictors with our chosen response in some sort of other linear model in order to examine the sign and size of the associated coefficient.
+It seems obvious that the number of touchdowns a team scores would have a large impact on their score differential. In the broader context of football, it makes sense that red zone plays would be considered highly important for predicting score differential because, considering that the red zone is the area within 20 yards of the opponent's end zone, this is where points are scored, and the more plays that are run in this area the more points should be scored. It also makes logical sense that rushing yards should be almost as important, both because teams that are leading by large amounts tend to run much more in order to possess the ball, and conversely teams that have great success running tend to have more control of the game and time of possession. In terms of the "second tier" predictors, QB_hits makes sense as a solid predictor. Presumably, the fewer hits your quarterback is taking, then the better chance you have of putting up more points than your opponent. The number of interceptions a team gets gives more opportunities to score while having to drive fewer yards down the field than if the ball was obtained otherwise (such as a punt, or a kickoff). The number of passing yards and shotgun plays are slightly less interpretable in terms of their importance. Passing yards could be a positive predictor because a team that amasses lots of passing yardage likely scores many points. However, a team that is behind by a large amount may gain many passing yards towards the end of the game in a meaningless effort to catch up to the winning team (this is referred to as "garbage time" statistics, when the outcome of the game is relatively determined, but play still occurs and players amass stats). Similarly, the number of stats taken out of the shotgun could be the mark of a team being successfully aggressive in their passing game, or that a team is struggling behind and trying to play catch-up. It would be best to investigate the nature of the relationship of these predictors with our chosen response in some sort of other linear model in order to examine the sign and size of the associated coefficient.
 
 \textbf{Ridge Regression and LASSO}
 
 
-```{r}
+```{r, echo=F, message=F}
 library(glmnet)
 library(Rcpp)
 library(Matrix)
@@ -371,7 +359,7 @@ The next modeling methods we chose to use were Ridge and Lasso regressions. Both
 
 First, we fit a Ridge regression model, which uses a squared $\lambda$ penalty factor, then the Lasso regression with its absolute value $\lambda$ followed. The Lasso typically has an advantage over the Ridge in that it punishes the $\beta_j$ coefficients more harshly, pushing the insignificant and unimportant predictors all the way to 0 if they are truly irrelevant. 
 
-```{r}
+```{r, echo=F}
 par(mfrow=c(1,2))
 plot(MSE.ridges.test~log(ridges$lambda,10),type="l", ylim = c(100, 250))
 plot(MSE.lassos.test~log(lassos$lambda,10),type="l", ylim = c(100, 250))
@@ -380,12 +368,12 @@ plot(MSE.lassos.test~log(lassos$lambda,10),type="l", ylim = c(100, 250))
 The MSE in the test plot demonstrates that this shrinkage, in both the Ridge and Lasso regressions, greatly improves the model estimates. Accordingly, the Ridge's best $\lambda$ turns out to be $log_{10}(\lambda) \approx 0.5$ and $\lambda = 3.162278$, which matches the graph's minimum MSE well, from a visual inspection. The corresponding MSE for the best $\lambda$'s Ridge is 109.7959. In a similar plot for the Lasso regression, the optimal $\lambda$ came out as $log_{10}(\lambda) = -1$ so $\lambda = 0.1$. The Lasso also performed better than the Ridge regression, as expected, with an MSE of 107.4165, which is verifiably less than the Ridge's MSE (107.4165 < 109.7959). That means that the Lasso regression model is $\sim 2.2\%$ better than the Ridge regression model in terms of MSE, and we logically know that the $\lambda 's$ cannot be compared due to the difference in calculation methods. This makes sense since our data does appear to have several unimportant predictors mixed in with a few significant ones, as is common in the real world beyond pure statistical problems. It is also crucial to note that the Lasso MSE tops out at 240 while the Ridge MSE does not appear to stop growing beyond our chosen $\lambda$ bounds. For the Lasso, we have already found our optimal $\lambda = 0.01$, but the MSE boundary shows that MSE does not increase when $\lambda > \sim 2.3$.
 
 Looking at the Ridge model's $\beta_j$ trajectory plots, we can see wide variability for many of the predictors, with some shrinking to 0 incredibly quickly while others more gradually or steeply further along the $log(\lambda's)$.
-```{r}
+```{r, echo=F}
 matplot(log(ridges$lambda, 10), t(ridges$beta),type="l")
 ```
 
 In the Lasso's version of the test $\beta_j$ trajectory plots, the trajectories are much more enticing. all of the predictors are significant, until they aren't, dropping off sharply after specific lambda values, and almost all of them have shrunk to 0 by the time $\lambda= 0.1$ or shortly thereafter. 
-```{r}
+```{r, echo=F}
 matplot(log(lassos$lambda, 10), t(lassos$beta),type="l")
 ```
 
@@ -394,7 +382,7 @@ We can be thankful for this result, albeit expected, since the Lasso regression'
 
 \section{LMER Modeling}
 
-```{r, eval=T}
+```{r, eval=T, echo=F}
 lmer_all <- lmer(Score_Dif ~ Home +TFL + QB_Hit + Pass_Yrd + Rush_Yrd + FG_attempt + 
     XP_missed + FG_missed + FUM + INT + Fourth_Dwn_Con + Third_Dwn_Con + Pen + 
     RedZone_Plays + Unique_Receivers + Shotgun_Plays + (1|Team_Name),data=data_2017_19)
@@ -416,7 +404,7 @@ Nonetheless, a random intercept model with only the predictors returned by the s
 We also fit a linear mixed-effects model with a random intercept by team and random slope for the relationship of total rushing yards with final score differential. In theory, if some teams were primarily a "passing" team, total rushing yards might have less of an outcome on final score differential than if their primary game strategy relied on the run. However, we find that this random slope model actually worsens the model AIC suggesting that this is not a particularly important trend.
 
 The fitted values vs residuals plot and Normal Q-Q plots are both reasonable for this random-intercept mixed-effects model, demonstrating that constant variance and normality of residuals are acceptable assumptions for this model. However, there is some concern with the distribution of fitted random intercept estimates--the histogram is neither normal-shaped or symmetric. This could potentially be fixed with \textbf{Blank but it is probably not an issue at the end of the day}.
-```{r, eval=T}
+```{r, eval=T, echo=F}
 par(mfrow=c(2, 2))
 plot(resid(lmer_all)~predict(lmer_all), main="Fitted Values vs Residuals", xlab="Predicted", ylab="Resid")
 abline(h=0, col = "red")
@@ -430,7 +418,7 @@ hist(coef(lmer_all)$Team_Name[,1], main="Histogram of Random Intercept Estimates
 \section{Ridge, Lasso, and Stepwise Regression}
 
 
-```{r}
+```{r, echo=F}
 list.models <- list(lmer_all, lmer_step, lmer_step_slope, lm1, step.both, step.both.int)
 list.all.models <- list(lmer_all, lmer_step, lmer_step_slope, lm1, step.both, step.both.int)
 model.results <- data.frame(unlist(lapply(list.models, AIC)),
@@ -462,7 +450,7 @@ knitr::kable(model.results[,1:2])
 
 Although our main focus was predicting score differential, we thought that predicting the probability of a win would be an interesting extension to our project, and would highlight some of the oversights of our models as well as some interesting scenarios that just can’t be handled meaningfully (looking at you, Bill Belichick). In this section, we fit a glm model with the parameter of being in the binomial family for the response, which in this case is wins. Our assumptions are minimal, as seen in the lectures, and all we need is independent observations which we generally have. We recorded each teams’ wins for each game, to be used as a response. Then, we created two glm’s, one with the top 5 predictors from the random forest variable importance (Rush Yards, RedZone Plays, Qb Hits, Shotgun plays, and interceptions) as well as a model with all predictors except for the game id, year, team, and score differential. Using these models, we could create models showing what things contributed to the probability of a win. Doing this, we could compare the two models’ coefficients and see what changed from model to model:
 
-```{r}
+```{r, echo=F}
 
 data_2017_19_test = data.frame(data_2017_19)
 
@@ -489,7 +477,7 @@ Our plot shows most notably that the intercept lost magnitude when predictors we
 Interestingly, both models had a worse train accuracy than test accuracy, which was in the years 2017-2019, as seen in the table below. Showing that our model wasn’t too overfit and did have some predictive power. 
 
 
-```{r}
+```{r, echo=F}
 new_2021 = data.frame(data_2021)
 new_2021$year = 2021
 
@@ -516,7 +504,7 @@ Importantly, the model did actually get that prediction correct, but odd scenari
 
 In the long run, we’d be able to claim that rushing for more yards likely means you are winning and don’t have to pass, which points to there being a win, but a team could just rush for every play and rack up the yards and still lose, which is why we cannot say that rushing yards increase your chances of winning, but rather we associate higher amounts of rushing yards with a higher chance of winning. 
 
-```{r}
+```{r, echo=F}
 
 ne.game.init = predict(win.log, newdata = new_2021[new_2021$Game_id=="2021_04_TB_NE" & new_2021$Home==1,], type="response"); ne.game.init
 
@@ -539,7 +527,7 @@ These predictors are incorporated into previously generated models to weigh thei
 
 A random forest was fitted using these new predictors. It was run before log-transforming the Run/Pass ratio data, as there are no underlying distributional assumptions. The variable importance plot produced with this new data in the presence of old predictors shares the same general structure as before. The new 1st half predictors can be seen grouped together in what appears to be their own “tier” of importance, below the same top 6 important predictors as before. This may be a result of multicollinearity between the newly introduced predictors. Half1_QB_Hits appears to be a relatively unimportant predictor.
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, echo=F}
 
 ################ FIRST HALF PREDICTORS EXTENSION ################ 
 
